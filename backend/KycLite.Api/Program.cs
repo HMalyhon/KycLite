@@ -1,4 +1,6 @@
 using KycLite.Api.Extraction;
+using KycLite.Api.Validation;
+using KycLite.Api.Validation.FieldRules;
 using Microsoft.OpenApi;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -42,6 +44,16 @@ builder.Services.AddHealthChecks();
 // Offline, network-free extractor. A real provider will later sit behind the same
 // IDocumentExtractor boundary with no change to callers or the API contract.
 builder.Services.AddSingleton<IDocumentExtractor, MockDocumentExtractor>();
+
+// --- Field-rules: the type-aware matrix the user composes checks from. Registering a rule
+// here makes it discoverable automatically via /api/field-rules and the UI. ---
+builder.Services.AddSingleton<IFieldRule, RequiredCheck>();
+builder.Services.AddSingleton<IFieldRule, PatternCheck>();
+builder.Services.AddSingleton<IFieldRule, MinLengthCheck>();
+builder.Services.AddSingleton<IFieldRule, ChecksumCheck>();
+builder.Services.AddSingleton<IFieldRule, DateOnOrAfterCheck>();
+builder.Services.AddSingleton<IFieldRule, DateOnOrBeforeCheck>();
+builder.Services.AddSingleton<FieldCheckRunner>();
 
 var app = builder.Build();
 
