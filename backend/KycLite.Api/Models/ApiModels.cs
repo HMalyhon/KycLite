@@ -15,3 +15,21 @@ public sealed record RuleResult(string RuleKey, string RuleLabel, bool Passed, s
 /// check was ignored rather than silently passed.
 /// </summary>
 public sealed record IgnoredCheck(string Field, string Rule, string Reason);
+
+/// <summary>The verdict returned to the web app.</summary>
+public sealed class VerifyResponse
+{
+    /// <summary>"Approve" when every check passed; otherwise "Reject".</summary>
+    public required string Status { get; init; }
+    public string? DocumentType { get; init; }
+
+    /// <summary>Extracted fields projected to the user's selection (all fields when "*").</summary>
+    public Dictionary<string, FieldValue> ExtractedFields { get; init; } = new();
+    public List<RuleResult> RuleResults { get; init; } = new();
+
+    /// <summary>Checks that were dropped without evaluating (see <see cref="IgnoredCheck"/>); empty when all ran.</summary>
+    public List<IgnoredCheck> IgnoredChecks { get; init; } = new();
+
+    /// <summary>"azure" or "mock" — surfaced for transparency in the demo.</summary>
+    public required string ExtractorMode { get; init; }
+}
