@@ -1,3 +1,4 @@
 <Solution>
+  <Project Path="KycLite.Api.Tests/KycLite.Api.Tests.csproj" />
   <Project Path="KycLite.Api/KycLite.Api.csproj" />
 </Solution>
