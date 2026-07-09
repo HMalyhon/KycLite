@@ -1,4 +1,5 @@
 using System.Threading.RateLimiting;
+using DotNetEnv;
 using KycLite.Api.Controllers;
 using KycLite.Api.Extraction;
 using KycLite.Api.Infrastructure;
@@ -6,6 +7,10 @@ using KycLite.Api.Services;
 using KycLite.Api.Validation;
 using KycLite.Api.Validation.FieldRules;
 using Microsoft.OpenApi;
+
+// Load .env (searching up the directory tree) into environment variables before configuration
+// is built, so DocumentIntelligence__* keys flow into IConfiguration.
+Env.TraversePath().Load();
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -24,8 +29,8 @@ builder.Services.AddControllers();
 // behaviour is deterministically testable (a FakeTimeProvider stands in for the wall clock).
 builder.Services.AddSingleton(TimeProvider.System);
 
-// Guard the verify endpoint (each real call can incur a billed provider transaction) with a
-// per-client fixed window, so a single caller can't drive cost or starve others.
+// Guard the verify endpoint (each real call can incur a billed Azure transaction) with a per-client
+// fixed window, so a single caller can't drive cost or starve others. Tune the limit for production.
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -40,7 +45,7 @@ builder.Services.AddRateLimiter(options =>
             }));
 });
 
-// Consistent RFC 7807 error responses: unhandled exceptions become ProblemDetails
+// Consistent RFC 7807 error responses: unhandled exceptions become ProblemDetails 500s
 // (no leaked stack traces) rather than the raw developer exception page.
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
@@ -67,9 +72,24 @@ builder.Services.AddSwaggerGen(options =>
         options.IncludeXmlComments(xmlPath);
 });
 
-// Offline, network-free extractor. A real provider will later sit behind the same
-// IDocumentExtractor boundary with no change to callers or the API contract.
-builder.Services.AddSingleton<IDocumentExtractor, MockDocumentExtractor>();
+// --- Extraction provider: Azure when configured, otherwise the offline mock. ---
+builder.Services
+    .AddOptions<DocumentIntelligenceOptions>()
+    .Bind(builder.Configuration.GetSection(DocumentIntelligenceOptions.SectionName))
+    // When Azure is configured, fail fast at startup on a malformed endpoint rather than
+    // throwing on the first request. In mock mode (nothing set) the predicate is a no-op.
+    .Validate(o => !o.IsConfigured || Uri.TryCreate(o.Endpoint, UriKind.Absolute, out _),
+        "DocumentIntelligence__Endpoint must be a valid absolute URI when Azure credentials are set.")
+    .ValidateOnStart();
+
+var diOptions = builder.Configuration
+    .GetSection(DocumentIntelligenceOptions.SectionName)
+    .Get<DocumentIntelligenceOptions>() ?? new DocumentIntelligenceOptions();
+
+if (diOptions.IsConfigured)
+    builder.Services.AddSingleton<IDocumentExtractor, AzureDocumentExtractor>();
+else
+    builder.Services.AddSingleton<IDocumentExtractor, MockDocumentExtractor>();
 
 // --- Field-rules: the type-aware matrix the user composes checks from. Registering a rule
 // here makes it discoverable automatically via /api/field-rules and the UI. ---
@@ -95,5 +115,7 @@ app.UseCors(CorsPolicy);
 app.UseRateLimiter();
 app.MapControllers();
 app.MapHealthChecks("/health");
+
+app.Logger.LogInformation("Document extractor active: {Mode}", diOptions.IsConfigured ? "azure" : "mock");
 
 app.Run();
