@@ -30,7 +30,9 @@ builder.Services.AddControllers();
 builder.Services.AddSingleton(TimeProvider.System);
 
 // Guard the verify endpoint (each real call can incur a billed Azure transaction) with a per-client
-// fixed window, so a single caller can't drive cost or starve others. Tune the limit for production.
+// fixed window, so a single caller can't drive cost or starve others. The limit is aligned with the
+// Azure Document Intelligence free (F0) tier, which caps at ~20 requests/minute — so the demo can't
+// out-run the free quota and get throttled by Azure itself. Raise this for a paid (S0) tier.
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -39,8 +41,8 @@ builder.Services.AddRateLimiter(options =>
             partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
             factory: _ => new FixedWindowRateLimiterOptions
             {
-                PermitLimit = 30,
-                Window = TimeSpan.FromSeconds(10),
+                PermitLimit = 20,
+                Window = TimeSpan.FromMinutes(1),
                 QueueLimit = 0,
             }));
 });
