@@ -121,3 +121,6 @@ app.MapHealthChecks("/health");
 app.Logger.LogInformation("Document extractor active: {Mode}", diOptions.IsConfigured ? "azure" : "mock");
 
 app.Run();
+
+// Exposed so the integration tests can drive the real pipeline via WebApplicationFactory<Program>.
+public partial class Program { }
