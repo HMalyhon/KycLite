@@ -1,0 +1,64 @@
+@layer theme, base, primevue;
+
+:root {
+  font-family: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', Roboto,
+    Helvetica, Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  color: var(--p-text-color);
+  background: var(--p-content-background);
+}
+
+a {
+  color: var(--p-primary-color);
+}
+
+/* Numeric data (confidence, dates, doc numbers) reads cleaner with tabular figures. */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Visually hidden but available to screen readers (e.g. concise live-region status). */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Guarantee a visible keyboard focus indicator everywhere, even where a component
+   resets the native outline. */
+:focus-visible {
+  outline: 2px solid var(--p-primary-color);
+  outline-offset: 2px;
+  border-radius: var(--p-border-radius, 6px);
+}
+
+/* Respect users who prefer reduced motion. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
