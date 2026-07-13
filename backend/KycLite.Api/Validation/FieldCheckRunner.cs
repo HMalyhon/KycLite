@@ -42,7 +42,9 @@ public sealed class FieldCheckRunner(IEnumerable<IFieldRule> rules)
             var fieldType = FieldCatalog.TypeOf(check.Field);
             if (fieldType is null || !rule.AppliesTo.Contains(fieldType))
             {
-                ignored.Add(new IgnoredCheck(check.Field, check.Rule,
+                ignored.Add(new IgnoredCheck(
+                    check.Field,
+                    check.Rule,
                     $"Rule '{rule.Key}' does not apply to {fieldType ?? "this"}-type fields."));
                 continue;
             }

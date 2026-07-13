@@ -12,7 +12,7 @@ namespace KycLite.Api.Validation.FieldRules;
 public static partial class DateParsing
 {
     private static readonly string[] ValueFormats =
-        { "yyyy-MM-dd", "yyyy/MM/dd", "dd-MM-yyyy", "dd/MM/yyyy", "MM/dd/yyyy" };
+        ["yyyy-MM-dd", "yyyy/MM/dd", "dd-MM-yyyy", "dd/MM/yyyy", "MM/dd/yyyy"];
 
     public static bool TryParseValue(string? value, out DateOnly date)
     {
@@ -58,6 +58,7 @@ public static partial class DateParsing
                     return false;
                 }
             }
+
             return true;
         }
 

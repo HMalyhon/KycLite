@@ -1,0 +1,92 @@
+# EditorConfig for the KYC-Lite backend — codifies the (already consistent) house style and
+# tunes the analyzer set enabled via Directory.Build.props (AnalysisLevel=latest-recommended).
+# https://learn.microsoft.com/dotnet/fundamentals/code-analysis/configuration-files
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+
+[*.{cs,csproj,props,slnx}]
+indent_size = 4
+
+[*.{json,yml,yaml}]
+indent_size = 2
+
+[*.cs]
+# --- Language idioms this codebase follows (guidance; not build-breaking). ---
+csharp_style_namespace_declarations = file_scoped:suggestion
+csharp_prefer_primary_constructors = true:suggestion
+dotnet_style_collection_initializer = true:suggestion
+csharp_style_prefer_primary_constructors = true:suggestion
+csharp_style_expression_bodied_methods = when_on_single_line:suggestion
+dotnet_style_prefer_conditional_expression_over_return = true:suggestion
+dotnet_style_readonly_field = true:suggestion
+
+# Private fields are _camelCase (see _client, _rulesByKey).
+dotnet_naming_rule.private_fields_underscored.severity = suggestion
+dotnet_naming_rule.private_fields_underscored.symbols = private_fields
+dotnet_naming_rule.private_fields_underscored.style = underscore_prefix
+dotnet_naming_symbols.private_fields.applicable_kinds = field
+dotnet_naming_symbols.private_fields.applicable_accessibilities = private
+dotnet_naming_style.underscore_prefix.capitalization = camel_case
+dotnet_naming_style.underscore_prefix.required_prefix = _
+
+# --- Analyzer severity decisions ---
+# High-performance logging (LoggerMessage source-gen / level-guarded argument evaluation) is
+# deliberately not adopted: this service has two log statements (startup mode + unhandled-error),
+# so the source-generated ceremony would add noise without measurable benefit.
+dotnet_diagnostic.CA1848.severity = none
+dotnet_diagnostic.CA1873.severity = none
+
+# --- StyleCop (SAxxxx) ---
+# StyleCop's defaults encode a pre-modern (.NET Framework-era) C# style. The rules below are
+# switched off because they contradict conventions this codebase adopts deliberately; everything
+# else stays on and is build-breaking, so StyleCop still guards layout/ordering in new code.
+
+# Obsolete convention; conflicts with modern C# (and with primary constructors).
+dotnet_diagnostic.SA1101.severity = none
+# Usings live above the file-scoped namespace, per current .NET templates.
+dotnet_diagnostic.SA1200.severity = none
+# No license/file headers in this repo.
+dotnet_diagnostic.SA1633.severity = none
+# Private fields are _camelCase — codified in the naming rule above.
+dotnet_diagnostic.SA1309.severity = none
+# Guard clauses stay brace-less single-liners (`if (x is null) return;`).
+dotnet_diagnostic.SA1503.severity = none
+# Mostly fires on the using-block/namespace boundary; blank-line layout is already consistent.
+dotnet_diagnostic.SA1516.severity = none
+# Comments that annotate a step inside a fluent chain or object initializer read better tight
+# against the line they describe; a forced blank line there breaks the chain visually.
+dotnet_diagnostic.SA1515.severity = none
+
+# XML docs are written where they add value (they surface in Swagger), not on every member —
+# the same reason CS1591 is in NoWarn. Don't force ceremony docs on params/returns/properties.
+dotnet_diagnostic.SA1600.severity = none
+dotnet_diagnostic.SA1601.severity = none
+dotnet_diagnostic.SA1611.severity = none
+dotnet_diagnostic.SA1615.severity = none
+dotnet_diagnostic.SA1623.severity = none
+
+# Small, cohesive types are grouped one-concept-per-file (e.g. ApiModels.cs, IFieldRule.cs), so a
+# file may hold several types, need not be named after the first, and may order them for reading.
+dotnet_diagnostic.SA1402.severity = none
+dotnet_diagnostic.SA1649.severity = none
+dotnet_diagnostic.SA1201.severity = none
+
+# The doc rules above are off, so StyleCop's XML-comment analysis has nothing to check; SA0001
+# would otherwise fail the test project purely for not emitting a documentation file.
+dotnet_diagnostic.SA0001.severity = none
+
+[*Tests.cs]
+# Test method names intentionally use Method_State_Expectation with underscores.
+dotnet_diagnostic.CA1707.severity = none
+# Trailing comments in [InlineData] tables are column-aligned on purpose (they read as a table).
+dotnet_diagnostic.SA1025.severity = none
+# `// --- Section ---` dividers are followed by a blank line to group a file's test sections.
+dotnet_diagnostic.SA1512.severity = none
+# A private helper sits with the section it serves rather than being hoisted below the tests.
+dotnet_diagnostic.SA1202.severity = none

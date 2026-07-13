@@ -80,7 +80,8 @@ builder.Services
     .Bind(builder.Configuration.GetSection(DocumentIntelligenceOptions.SectionName))
     // When Azure is configured, fail fast at startup on a malformed endpoint rather than
     // throwing on the first request. In mock mode (nothing set) the predicate is a no-op.
-    .Validate(o => !o.IsConfigured || Uri.TryCreate(o.Endpoint, UriKind.Absolute, out _),
+    .Validate(
+        o => !o.IsConfigured || Uri.TryCreate(o.Endpoint, UriKind.Absolute, out _),
         "DocumentIntelligence__Endpoint must be a valid absolute URI when Azure credentials are set.")
     .ValidateOnStart();
 
@@ -123,4 +124,6 @@ app.Logger.LogInformation("Document extractor active: {Mode}", diOptions.IsConfi
 app.Run();
 
 // Exposed so the integration tests can drive the real pipeline via WebApplicationFactory<Program>.
-public partial class Program { }
+public partial class Program
+{
+}

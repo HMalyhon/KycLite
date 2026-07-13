@@ -33,11 +33,21 @@ public sealed class GlobalExceptionHandler(
 
         // Server faults (5xx) are logged as errors; client-input faults (4xx) as warnings.
         if (status >= StatusCodes.Status500InternalServerError)
-            logger.LogError(exception, "Unhandled exception while processing {Method} {Path}",
-                httpContext.Request.Method, httpContext.Request.Path);
+        {
+            logger.LogError(
+                exception,
+                "Unhandled exception while processing {Method} {Path}",
+                httpContext.Request.Method,
+                httpContext.Request.Path);
+        }
         else
-            logger.LogWarning(exception, "Request could not be processed: {Method} {Path}",
-                httpContext.Request.Method, httpContext.Request.Path);
+        {
+            logger.LogWarning(
+                exception,
+                "Request could not be processed: {Method} {Path}",
+                httpContext.Request.Method,
+                httpContext.Request.Path);
+        }
 
         httpContext.Response.StatusCode = status;
 

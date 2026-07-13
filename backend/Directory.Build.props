@@ -1,0 +1,30 @@
+<Project>
+
+  <!-- Solution-wide build quality gate, applied to every project under backend/. Kept here (rather
+       than per-csproj) so the API and test projects share one consistent, portfolio-grade bar. -->
+  <PropertyGroup>
+    <!-- Fail the build on any warning: the repo is warning-clean and should stay that way. -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!-- Turn on the latest recommended .NET code-quality (CAxxxx) analyzers. -->
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <!-- Enforce the .editorconfig code-style (IDExxxx) rules at build time, not just in the IDE. -->
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+  </PropertyGroup>
+
+  <!-- StyleCop (SAxxxx): layout/ordering rules the .NET analyzers don't cover.
+       PrivateAssets="all" keeps it a build-time-only dependency (never flows to consumers).
+
+       The 1.2.0-beta line is pinned deliberately. StyleCop.Analyzers' last *stable* release
+       (1.1.118) shipped in 2019 and predates modern C#: it reports target-typed `new()` as
+       SA1000, collection expressions `[...]` as SA1010, and every record / primary-constructor
+       parameter as SA1313 — ~90 unfixable false positives here. 1.2.0-beta is the de-facto
+       standard for .NET 5+ (it's what the Roslyn and ASP.NET Core repos use). Revisit if a
+       stable 1.2.0 ever ships. -->
+  <ItemGroup>
+    <PackageReference Include="StyleCop.Analyzers" Version="1.2.0-beta.556">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+</Project>

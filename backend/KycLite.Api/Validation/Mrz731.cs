@@ -16,6 +16,7 @@ public static class Mrz731
         {
             sum += CharValue(input[i]) * Weights[i % 3];
         }
+
         return sum % 10;
     }
 

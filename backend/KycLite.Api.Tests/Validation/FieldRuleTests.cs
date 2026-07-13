@@ -147,7 +147,7 @@ public class FieldRuleTests
         var checks = new[]
         {
             new FieldCheck(FieldKeys.Address, "does-not-exist", null),
-            new FieldCheck("", "required", null),
+            new FieldCheck(string.Empty, "required", null),
         };
 
         // Act
