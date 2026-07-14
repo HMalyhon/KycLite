@@ -17,13 +17,18 @@ const selected = defineModel<string[]>('selected', { required: true })
     </template>
     <template #content>
       <div class="toggle">
-        <ToggleSwitch v-model="fullResponse" inputId="full" />
+        <ToggleSwitch v-model="fullResponse" input-id="full" />
         <label for="full"><strong>Full response</strong> — return every extracted field</label>
       </div>
 
       <div class="grid" :class="{ disabled: fullResponse }">
         <div v-for="f in fields" :key="f.key" class="item">
-          <Checkbox v-model="selected" :value="f.key" :inputId="`f-${f.key}`" :disabled="fullResponse" />
+          <Checkbox
+            v-model="selected"
+            :value="f.key"
+            :input-id="`f-${f.key}`"
+            :disabled="fullResponse"
+          />
           <label :for="`f-${f.key}`">{{ f.label }}</label>
         </div>
       </div>

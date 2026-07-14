@@ -49,7 +49,13 @@ onBeforeUnmount(() => {
         <input ref="input" type="file" accept="image/*,application/pdf" hidden @change="onInput" />
 
         <template v-if="file">
-          <Image v-if="isImage && previewUrl" :src="previewUrl" alt="Document preview" preview imageClass="preview-img" />
+          <Image
+            v-if="isImage && previewUrl"
+            :src="previewUrl"
+            alt="Document preview"
+            preview
+            image-class="preview-img"
+          />
           <div v-else class="placeholder"><i class="pi pi-file-pdf" /></div>
           <p class="filename">{{ file.name }}</p>
           <Button label="Choose a different file" link size="small" @click="input?.click()" />
@@ -78,7 +84,9 @@ onBeforeUnmount(() => {
   border-radius: var(--p-border-radius-lg, 12px);
   padding: 1.75rem 1.25rem;
   text-align: center;
-  transition: border-color 0.15s, background 0.15s;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
 }
 .dropzone.dragging {
   border-color: var(--p-primary-color);

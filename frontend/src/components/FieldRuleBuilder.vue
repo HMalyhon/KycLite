@@ -79,7 +79,9 @@ function removeRow(index: number) {
       before/after, text offers required / pattern / length. Seeded with sensible defaults.
     </template>
     <template #content>
-      <div v-if="rows.length === 0" class="empty">No checks — this document will be auto-approved.</div>
+      <div v-if="rows.length === 0" class="empty">
+        No checks — this document will be auto-approved.
+      </div>
 
       <div class="rows">
         <div v-if="rows.length" class="row row-head" aria-hidden="true">
@@ -94,8 +96,8 @@ function removeRow(index: number) {
           <Select
             v-model="row.field"
             :options="fields"
-            optionLabel="label"
-            optionValue="key"
+            option-label="label"
+            option-value="key"
             placeholder="Field"
             :aria-label="`Field for check ${i + 1}`"
             class="cell field-select"
@@ -104,8 +106,8 @@ function removeRow(index: number) {
           <Select
             v-model="row.rule"
             :options="rulesForRow(row)"
-            optionLabel="label"
-            optionValue="key"
+            option-label="label"
+            option-value="key"
             placeholder="Rule"
             :disabled="!row.field"
             :aria-label="`Rule for check ${i + 1}`"
@@ -138,12 +140,7 @@ function removeRow(index: number) {
             class="row-remove"
             @click="removeRow(i)"
           />
-          <small
-            v-if="paramError(row)"
-            :id="`date-err-${row.id}`"
-            class="param-error"
-            role="alert"
-          >
+          <small v-if="paramError(row)" :id="`date-err-${row.id}`" class="param-error" role="alert">
             <i class="pi pi-exclamation-circle" aria-hidden="true" /> {{ paramError(row) }}
           </small>
         </div>

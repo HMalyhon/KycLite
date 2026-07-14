@@ -50,7 +50,9 @@ function humanize(key: string) {
       <ul class="rules">
         <li v-for="r in result.ruleResults" :key="r.ruleKey">
           <i :class="r.passed ? 'pi pi-check-circle pass' : 'pi pi-times-circle fail'" />
-          <span><strong>{{ r.ruleLabel }}</strong> — {{ r.message }}</span>
+          <span
+            ><strong>{{ r.ruleLabel }}</strong> — {{ r.message }}</span
+          >
         </li>
         <li v-if="result.ruleResults.length === 0" class="muted">
           No rules selected — approved by default.
@@ -63,8 +65,8 @@ function humanize(key: string) {
         :closable="false"
         class="ignored"
       >
-        <strong>{{ result.ignoredChecks.length }} check(s) were ignored</strong> and did not
-        affect the verdict:
+        <strong>{{ result.ignoredChecks.length }} check(s) were ignored</strong> and did not affect
+        the verdict:
         <ul>
           <li v-for="(c, i) in result.ignoredChecks" :key="i">
             <code>{{ c.field }} · {{ c.rule }}</code> — {{ c.reason }}
@@ -73,12 +75,12 @@ function humanize(key: string) {
       </Message>
 
       <h3>Extracted fields</h3>
-      <DataTable :value="fieldRows" size="small" stripedRows>
+      <DataTable :value="fieldRows" size="small" striped-rows>
         <Column header="Field">
           <template #body="{ data }">{{ humanize(data.key) }}</template>
         </Column>
-        <Column field="value" header="Value" bodyClass="tabular-nums" />
-        <Column header="Confidence" headerStyle="width:7rem">
+        <Column field="value" header="Value" body-class="tabular-nums" />
+        <Column header="Confidence" header-style="width:7rem">
           <template #body="{ data }">
             <Tag
               v-if="data.confidence != null"

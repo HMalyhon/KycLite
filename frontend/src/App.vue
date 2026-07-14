@@ -30,8 +30,8 @@ const {
       <p class="eyebrow"><i class="pi pi-verified" /> Identity verification</p>
       <h1>KYC-Lite · Document Verification</h1>
       <p class="sub">
-        Upload an ID or passport, choose the fields you want back and the rules to apply,
-        and get an approve/reject verdict with reasons.
+        Upload an ID or passport, choose the fields you want back and the rules to apply, and get an
+        approve/reject verdict with reasons.
       </p>
     </header>
 
@@ -39,11 +39,11 @@ const {
       <form class="col" novalidate @submit.prevent="submit">
         <UploadCard v-model="file" />
         <FieldSelector
-          :fields="fields"
-          v-model:fullResponse="fullResponse"
+          v-model:full-response="fullResponse"
           v-model:selected="selectedFields"
+          :fields="fields"
         />
-        <FieldRuleBuilder :fields="fields" :fieldRules="fieldRules" v-model="checkRows" />
+        <FieldRuleBuilder v-model="checkRows" :fields="fields" :field-rules="fieldRules" />
 
         <Button
           type="submit"
