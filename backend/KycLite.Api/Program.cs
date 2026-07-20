@@ -119,6 +119,18 @@ app.UseRateLimiter();
 app.MapControllers();
 app.MapHealthChecks("/health");
 
+// Single-app hosting (Azure App Service): when the built Vue frontend has been published into
+// wwwroot, serve it from this process — same origin, so the SPA's relative /api calls just work.
+// Locally there is no wwwroot (the Vite dev server + proxy is used instead), so this is a no-op
+// and dev/tests behave exactly as before.
+if (app.Environment.WebRootPath is { } webRoot && File.Exists(Path.Combine(webRoot, "index.html")))
+{
+    app.UseDefaultFiles();
+    app.UseStaticFiles();
+    // Client-side routing fallback; API and health routes above take precedence.
+    app.MapFallbackToFile("index.html");
+}
+
 app.Logger.LogInformation("Document extractor active: {Mode}", diOptions.IsConfigured ? "azure" : "mock");
 
 app.Run();
