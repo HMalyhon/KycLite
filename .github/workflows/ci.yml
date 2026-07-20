@@ -1,0 +1,66 @@
+# CI: enforce both quality gates on every push and pull request.
+#
+# The backend build runs with TreatWarningsAsErrors + analyzers + StyleCop; the frontend gate is
+# ESLint at --max-warnings 0, Prettier check, Vitest and the type-checking build — the same
+# commands documented in the README's "Quality gate" section, so the repo can't rot quietly.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  DOTNET_VERSION: 10.0.x
+  NODE_VERSION: 22
+
+jobs:
+  backend:
+    name: Backend · build + test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Build (warnings-as-errors gate)
+        run: dotnet build --configuration Release
+
+      - name: Test
+        run: dotnet test --configuration Release --no-build
+
+  frontend:
+    name: Frontend · lint + test + build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Lint (--max-warnings 0 gate)
+        run: npm run lint
+
+      - name: Format check
+        run: npm run format:check
+
+      - name: Test
+        run: npm run test
+
+      - name: Build (vue-tsc type-check + vite)
+        run: npm run build

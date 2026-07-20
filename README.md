@@ -1,5 +1,7 @@
 # KYC-Lite · Document Verification
 
+[![CI](https://github.com/HMalyhon/KycLite/actions/workflows/ci.yml/badge.svg)](https://github.com/HMalyhon/KycLite/actions/workflows/ci.yml)
+
 A small full-stack demo that verifies an ID card or passport. A user uploads a document image,
 **chooses which fields to get back and which validation rules to apply**, and receives an
 **approve / reject** verdict with a reason for every rule.
@@ -61,6 +63,7 @@ frontend/                 Vue 3 + Vite + TypeScript + PrimeVue (Aura theme) — 
   eslint.config.ts        ESLint flat config (eslint-plugin-vue lints inside SFC templates)
   .prettierrc.json        formatting; ESLint defers to it (no rule fights)
   .env.example            copy to .env to override the dev proxy target
+.github/workflows/ci.yml  quality gates on every push and pull request
 ```
 
 ## Running locally
@@ -126,7 +129,9 @@ The frontend suite (Vitest) covers `dateParam` — parsing and validating the re
 
 ## Quality gate
 
-Both halves fail the build on any warning, so neither can rot quietly.
+Both halves fail the build on any warning, so neither can rot quietly. **CI**
+([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs these same gates on every push and
+pull request — the badge at the top reflects the latest run.
 
 ```bash
 cd backend  && dotnet build     # warnings-as-errors
