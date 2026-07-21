@@ -63,7 +63,8 @@ frontend/                 Vue 3 + Vite + TypeScript + PrimeVue (Aura theme) — 
   eslint.config.ts        ESLint flat config (eslint-plugin-vue lints inside SFC templates)
   .prettierrc.json        formatting; ESLint defers to it (no rule fights)
   .env.example            copy to .env to override the dev proxy target
-.github/workflows/ci.yml  quality gates on every push and pull request
+.github/workflows/ci.yml  quality gates on every push/PR + OIDC deploy of main to Azure
+infra/                    main.bicep (App Service) + README.md (one-time Azure/OIDC setup)
 ```
 
 ## Running locally
@@ -165,6 +166,24 @@ dotnet run
 `.env` is git-ignored. On restart the log flips to `Document extractor active: azure` and the
 prebuilt `idDocument` model is used. That the frontend is unaffected is the point of the
 abstraction. (Environment variables and .NET user-secrets work too — they override `.env`.)
+
+## Deployment
+
+Every push to `main` that passes the quality gates is deployed to **Azure App Service** by the
+`deploy` job in [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
+
+- **Single app, single origin.** The pipeline publishes the ASP.NET Core API, drops the built Vue
+  app into its `wwwroot`, and ships one package. The API serves the SPA (and its relative `/api`
+  calls) from the same origin — one free-tier (F1) resource, one URL, no CORS to configure.
+  `Program.cs` only wires up static-file + SPA-fallback serving when a `wwwroot/index.html` is
+  present, so local development (Vite dev server + proxy) is untouched.
+- **OIDC, no stored secret.** GitHub Actions authenticates to Azure with a **federated identity**
+  (`azure/login` via `id-token`), so there's no publish profile or client secret in the repo — the
+  three `AZURE_*` values are non-sensitive identifiers.
+- **Infra as code.** [`infra/main.bicep`](infra/main.bicep) provisions the plan and web app;
+  [`infra/README.md`](infra/README.md) is the one-time setup (resource, Entra federation, secrets),
+  after which deploys are automatic. The deployed demo runs in **mock** mode unless
+  `DocumentIntelligence__*` app settings are supplied.
 
 ## API
 

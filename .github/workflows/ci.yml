@@ -1,8 +1,12 @@
-# CI: enforce both quality gates on every push and pull request.
+# CI: enforce both quality gates on every push/PR, then deploy main to Azure App Service.
 #
 # The backend build runs with TreatWarningsAsErrors + analyzers + StyleCop; the frontend gate is
 # ESLint at --max-warnings 0, Prettier check, Vitest and the type-checking build — the same
-# commands documented in the README's "Quality gate" section, so the repo can't rot quietly.
+# commands documented in the README's "Quality gate" section.
+#
+# The deploy job authenticates with OIDC (federated identity, no long-lived secret) and ships a
+# single App Service package: the published API with the built Vue app in wwwroot.
+# One-time Azure setup: see infra/README.md.
 
 name: CI
 
@@ -14,6 +18,7 @@ on:
 env:
   DOTNET_VERSION: 10.0.x
   NODE_VERSION: 22
+  AZURE_WEBAPP_NAME: kyclite
 
 jobs:
   backend:
@@ -64,3 +69,66 @@ jobs:
 
       - name: Build (vue-tsc type-check + vite)
         run: npm run build
+
+  deploy:
+    name: Deploy · Azure App Service
+    # Deploy only what passed both gates, and only from main (never from PRs).
+    needs: [backend, frontend]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: ${{ steps.webapp.outputs.webapp-url }}
+    permissions:
+      id-token: write # required for the OIDC federated-identity login
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Publish API
+        run: dotnet publish backend/KycLite.Api --configuration Release --output publish
+
+      - name: Build frontend
+        working-directory: frontend
+        run: npm ci && npm run build
+
+      # Single-app hosting: the API serves the SPA from wwwroot (see Program.cs).
+      - name: Bundle frontend into the API package
+        run: |
+          mkdir -p publish/wwwroot
+          cp -r frontend/dist/. publish/wwwroot/
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v3
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy
+        id: webapp
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}
+          package: publish
+
+      - name: Smoke test
+        run: |
+          base="${{ steps.webapp.outputs.webapp-url }}"
+          # F1 cold starts can be slow; retry before declaring the deploy broken.
+          for i in $(seq 1 10); do
+            if curl -sSf --max-time 30 "$base/health" >/dev/null; then break; fi
+            [ "$i" = 10 ] && { echo "health check failed" >&2; exit 1; }
+            sleep 15
+          done
+          curl -sSf --max-time 30 "$base/api/fields" | head -c 400
