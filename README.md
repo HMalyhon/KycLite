@@ -1,10 +1,16 @@
 # KYC-Lite · Document Verification
 
 [![CI](https://github.com/HMalyhon/KycLite/actions/workflows/ci.yml/badge.svg)](https://github.com/HMalyhon/KycLite/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
+**[Live demo →](https://kyclite.azurewebsites.net)** (running the offline mock extractor; the
+first request may take ~30 s while the free-tier instance wakes up)
 
 A small full-stack demo that verifies an ID card or passport. A user uploads a document image,
 **chooses which fields to get back and which validation rules to apply**, and receives an
 **approve / reject** verdict with a reason for every rule.
+
+![KYC-Lite verifying a document: upload preview, field selector and rule builder on the left, approve verdict with per-rule reasons and extracted fields on the right](docs/screenshot.png)
 
 The cloud OCR provider (Azure AI Document Intelligence) is **fully hidden behind a backend
 interface** — the web app talks only to this API and never knows a provider exists. When no
