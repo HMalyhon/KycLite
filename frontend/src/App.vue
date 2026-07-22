@@ -2,6 +2,7 @@
 import Button from 'primevue/button'
 import Message from 'primevue/message'
 import Card from 'primevue/card'
+import Tag from 'primevue/tag'
 import UploadCard from './components/UploadCard.vue'
 import FieldSelector from './components/FieldSelector.vue'
 import FieldRuleBuilder from './components/FieldRuleBuilder.vue'
@@ -11,6 +12,8 @@ import { useVerification } from './composables/useVerification'
 const {
   fields,
   fieldRules,
+  extractorMode,
+  isLiveExtractor,
   file,
   fullResponse,
   selectedFields,
@@ -32,6 +35,21 @@ const {
       <p class="sub">
         Upload an ID or passport, choose the fields you want back and the rules to apply, and get an
         approve/reject verdict with reasons.
+      </p>
+
+      <!-- Say up-front which engine this deployment runs, so nobody has to guess whether the
+           result came from real OCR or the offline sample document. -->
+      <p v-if="extractorMode" class="engine">
+        <Tag
+          :value="isLiveExtractor ? 'Live OCR' : 'Mock extractor'"
+          :severity="isLiveExtractor ? 'success' : 'warn'"
+          :icon="isLiveExtractor ? 'pi pi-cloud' : 'pi pi-box'"
+        />
+        <span>{{
+          isLiveExtractor
+            ? 'Documents are analysed by Azure AI Document Intelligence.'
+            : 'No OCR provider configured — uploads return a fixed sample document.'
+        }}</span>
       </p>
     </header>
 
@@ -105,6 +123,15 @@ const {
   margin: 0;
   max-width: 62ch;
   font-size: 1.02rem;
+}
+.engine {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0.9rem 0 0;
+  font-size: 0.88rem;
+  color: var(--p-text-muted-color);
 }
 .verify-btn {
   margin-top: 0.25rem;

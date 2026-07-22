@@ -6,6 +6,13 @@ namespace KycLite.Api.Models;
 /// </summary>
 public sealed record FieldDescriptor(string Key, string Label, string Type);
 
+/// <summary>
+/// Runtime state the web app reads on load. <paramref name="ExtractorMode"/> is "azure" or "mock",
+/// matching <see cref="VerifyResponse.ExtractorMode"/>, so the UI can say which engine is live
+/// before the first upload.
+/// </summary>
+public sealed record ApiStatus(string ExtractorMode);
+
 /// <summary>Outcome of a single check.</summary>
 public sealed record RuleResult(string RuleKey, string RuleLabel, bool Passed, string Message);
 

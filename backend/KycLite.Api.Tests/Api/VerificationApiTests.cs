@@ -46,6 +46,28 @@ public class VerificationApiTests : IClassFixture<WebApplicationFactory<Program>
     }
 
     [Fact]
+    public async Task GetStatus_WhenCalled_ReportsTheRegisteredExtractorsMode()
+    {
+        // Arrange — pin the extractor rather than relying on ambient DocumentIntelligence__*
+        // environment variables, which would otherwise decide what this test sees.
+        var extractor = new FakeDocumentExtractor(new ExtractionResult(), mode: "azure");
+        var client = _factory
+            .WithWebHostBuilder(b => b.ConfigureServices(s =>
+            {
+                s.RemoveAll<IDocumentExtractor>();
+                s.AddSingleton<IDocumentExtractor>(extractor);
+            }))
+            .CreateClient();
+
+        // Act
+        var status = await client.GetFromJsonAsync<ApiStatus>("/api/status", Json);
+
+        // Assert — the page reads this on load; it must be the same mode a verify response reports.
+        Assert.NotNull(status);
+        Assert.Equal("azure", status.ExtractorMode);
+    }
+
+    [Fact]
     public async Task PostVerify_WhenExtractorThrows_ReturnsProblemDetails500()
     {
         // Arrange — swap in an extractor that throws; GlobalExceptionHandler should turn that into

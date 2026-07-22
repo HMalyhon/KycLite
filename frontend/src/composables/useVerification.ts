@@ -4,6 +4,7 @@
 // date validation is advisory (see lib/dateParam) — the backend is the source of truth.
 import { computed, onMounted, ref } from 'vue'
 import {
+  getStatus,
   getFields,
   getFieldRules,
   getDefaultChecks,
@@ -39,6 +40,11 @@ export function useVerification() {
   // Discovery catalog (reference data driving the checkboxes / rule dropdowns).
   const fields = ref<FieldDescriptor[]>([])
   const fieldRules = ref<FieldRuleDescriptor[]>([])
+
+  // Which extraction engine this deployment runs — known before the first upload, so the page
+  // can say so on load instead of only in the result. Null until the status call lands.
+  const extractorMode = ref<string | null>(null)
+  const isLiveExtractor = computed(() => extractorMode.value === 'azure')
 
   // Form state.
   const file = ref<File | null>(null)
@@ -83,6 +89,16 @@ export function useVerification() {
   })
 
   onMounted(async () => {
+    // The engine badge is informational, so its request settles on its own: if it fails the
+    // badge just stays hidden, rather than taking the whole screen down with it.
+    void getStatus()
+      .then((status) => {
+        extractorMode.value = status.extractorMode
+      })
+      .catch(() => {
+        extractorMode.value = null
+      })
+
     try {
       const [fieldList, ruleList, defaults] = await Promise.all([
         getFields(),
@@ -124,6 +140,8 @@ export function useVerification() {
   return {
     fields,
     fieldRules,
+    extractorMode,
+    isLiveExtractor,
     file,
     fullResponse,
     selectedFields,

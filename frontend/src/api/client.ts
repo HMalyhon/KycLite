@@ -1,5 +1,5 @@
-// Typed client for the KYC-Lite API. The frontend talks only to this; it has no idea
-// whether the backend used Azure or the mock extractor.
+// Typed client for the KYC-Lite API. The frontend talks only to this; it never touches Azure
+// itself and only learns which extractor is active from what the API reports (`extractorMode`).
 
 const BASE = import.meta.env.VITE_API_BASE ?? ''
 
@@ -7,6 +7,11 @@ export interface FieldDescriptor {
   key: string
   label: string
   type: string
+}
+
+export interface ApiStatus {
+  /** "azure" (real OCR) or "mock" (offline sample data). */
+  extractorMode: string
 }
 
 export interface FieldRuleDescriptor {
@@ -59,6 +64,7 @@ async function getJson<T>(path: string): Promise<T> {
   return res.json() as Promise<T>
 }
 
+export const getStatus = () => getJson<ApiStatus>('/api/status')
 export const getFields = () => getJson<FieldDescriptor[]>('/api/fields')
 export const getFieldRules = () => getJson<FieldRuleDescriptor[]>('/api/field-rules')
 export const getDefaultChecks = () => getJson<FieldCheck[]>('/api/default-checks')

@@ -3,8 +3,8 @@
 [![CI](https://github.com/HMalyhon/KycLite/actions/workflows/ci.yml/badge.svg)](https://github.com/HMalyhon/KycLite/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-**[Live demo →](https://kyclite.azurewebsites.net)** (running the offline mock extractor; the
-first request may take ~30 s while the free-tier instance wakes up)
+**[Live demo →](https://kyclite.azurewebsites.net)** (the page states which extraction engine it
+is running; the first request may take ~30 s while the free-tier instance wakes up)
 
 A small full-stack demo that verifies an ID card or passport. A user uploads a document image,
 **chooses which fields to get back and which validation rules to apply**, and receives an
@@ -195,6 +195,7 @@ Every push to `main` that passes the quality gates is deployed to **Azure App Se
 
 | Method | Path                  | Purpose                                                                 |
 | ------ | --------------------- | ----------------------------------------------------------------------- |
+| GET    | `/api/status`         | Which extractor this instance runs (`azure`/`mock`); read on page load. |
 | GET    | `/api/fields`         | Fields the user can request, each tagged with a type (drives the UI).   |
 | GET    | `/api/field-rules`    | Field-rules the user can attach to a field (key, label, param, types).  |
 | GET    | `/api/default-checks` | The seed check set the UI starts with.                                  |
