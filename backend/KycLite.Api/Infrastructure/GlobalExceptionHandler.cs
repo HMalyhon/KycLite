@@ -28,6 +28,10 @@ public sealed class GlobalExceptionHandler(
                 "The uploaded document could not be processed."),
             TimeoutException => (StatusCodes.Status504GatewayTimeout,
                 "Document processing timed out. Please try again."),
+            // A deployment/configuration fault, not the caller's: say so plainly (the details are
+            // in the logged inner exception) rather than hiding it behind a generic 500.
+            ProviderAuthenticationException => (StatusCodes.Status503ServiceUnavailable,
+                "The document provider is not accepting this application's credentials."),
             _ => (StatusCodes.Status500InternalServerError, "An unexpected error occurred."),
         };
 

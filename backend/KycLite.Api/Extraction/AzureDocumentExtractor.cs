@@ -1,6 +1,7 @@
 using System.Globalization;
 using Azure;
 using Azure.AI.DocumentIntelligence;
+using Azure.Identity;
 using KycLite.Api.Catalog;
 using KycLite.Api.Models;
 using Microsoft.Extensions.Options;
@@ -39,9 +40,12 @@ public sealed class AzureDocumentExtractor(IOptions<DocumentIntelligenceOptions>
         ("Address", FieldKeys.Address),
     ];
 
-    private readonly DocumentIntelligenceClient _client = new(
-        new Uri(options.Value.Endpoint!),
-        new AzureKeyCredential(options.Value.ApiKey!));
+    // Keyless by default: with no ApiKey configured we authenticate with Entra ID, so the deployed
+    // app holds no secret at all (App Service managed identity; `az login` when running locally).
+    // A key, when supplied, still works — it keeps the .env quick-start viable.
+    private readonly DocumentIntelligenceClient _client = options.Value.UsesManagedIdentity
+        ? new DocumentIntelligenceClient(new Uri(options.Value.Endpoint!), new DefaultAzureCredential())
+        : new DocumentIntelligenceClient(new Uri(options.Value.Endpoint!), new AzureKeyCredential(options.Value.ApiKey!));
 
     public string Mode => ModeName;
 
@@ -67,8 +71,22 @@ public sealed class AzureDocumentExtractor(IOptions<DocumentIntelligenceOptions>
         catch (RequestFailedException ex) when (ex.Status is 400 or 413 or 415)
         {
             // Azure rejected the upload itself (invalid/unsupported/oversized document): that's a
-            // client-input problem, not a server fault. Auth/quota errors (401/403/429) still bubble.
+            // client-input problem, not a server fault. Quota errors (429) still bubble.
             throw new UnprocessableDocumentException("The uploaded document could not be processed.", ex);
+        }
+        catch (RequestFailedException ex) when (ex.Status is 401 or 403)
+        {
+            // Azure took the token but won't authorize it — a missing or still-propagating role
+            // assignment. Distinguished from a generic fault so the response can say so.
+            throw new ProviderAuthenticationException(
+                "The document provider rejected this application's credentials.", ex);
+        }
+        catch (AuthenticationFailedException ex)
+        {
+            // Couldn't obtain a token at all (no managed identity, no `az login`, wrong tenant).
+            // CredentialUnavailableException derives from this, so both land here.
+            throw new ProviderAuthenticationException(
+                "The application could not authenticate to the document provider.", ex);
         }
 
         AnalyzeResult analyze = operation.Value;

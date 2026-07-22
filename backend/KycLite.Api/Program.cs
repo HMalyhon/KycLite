@@ -74,15 +74,20 @@ builder.Services.AddSwaggerGen(options =>
         options.IncludeXmlComments(xmlPath);
 });
 
-// --- Extraction provider: Azure when configured, otherwise the offline mock. ---
+// --- Extraction provider: Azure when an endpoint is configured, otherwise the offline mock.
+// The key is optional — without one the extractor authenticates with Entra ID (the App Service's
+// managed identity in Azure, the developer's `az login` locally), so no secret is deployed. ---
 builder.Services
     .AddOptions<DocumentIntelligenceOptions>()
     .Bind(builder.Configuration.GetSection(DocumentIntelligenceOptions.SectionName))
-    // When Azure is configured, fail fast at startup on a malformed endpoint rather than
-    // throwing on the first request. In mock mode (nothing set) the predicate is a no-op.
+    // When an endpoint is set, fail fast at startup on a malformed one rather than on the first
+    // upload. https is required, not merely an absolute URI: the extractor now sends an Entra
+    // access token to this host, and a token must never leave over plaintext.
+    // In mock mode (nothing set) the predicate is a no-op.
     .Validate(
-        o => !o.IsConfigured || Uri.TryCreate(o.Endpoint, UriKind.Absolute, out _),
-        "DocumentIntelligence__Endpoint must be a valid absolute URI when Azure credentials are set.")
+        o => !o.IsConfigured
+            || (Uri.TryCreate(o.Endpoint, UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps),
+        "DocumentIntelligence__Endpoint must be an absolute https URI, e.g. https://<resource>.cognitiveservices.azure.com/.")
     .ValidateOnStart();
 
 var diOptions = builder.Configuration
@@ -131,7 +136,10 @@ if (app.Environment.WebRootPath is { } webRoot && File.Exists(Path.Combine(webRo
     app.MapFallbackToFile("index.html");
 }
 
-app.Logger.LogInformation("Document extractor active: {Mode}", diOptions.IsConfigured ? "azure" : "mock");
+app.Logger.LogInformation(
+    "Document extractor active: {Mode} ({Auth})",
+    diOptions.IsConfigured ? "azure" : "mock",
+    diOptions.IsConfigured ? (diOptions.UsesManagedIdentity ? "Entra ID / managed identity" : "account key") : "offline");
 
 app.Run();
 

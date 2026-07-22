@@ -68,6 +68,28 @@ public class VerificationApiTests : IClassFixture<WebApplicationFactory<Program>
     }
 
     [Fact]
+    public async Task PostVerify_WhenProviderRejectsCredentials_Returns503()
+    {
+        // Arrange — the dominant failure mode of the keyless setup: the identity has no role
+        // assignment (yet). That's a deployment fault, not a bad upload, and must not read as 500.
+        var client = _factory
+            .WithWebHostBuilder(b => b.ConfigureServices(s =>
+            {
+                s.RemoveAll<IDocumentExtractor>();
+                s.AddSingleton<IDocumentExtractor, UnauthenticatedExtractor>();
+            }))
+            .CreateClient();
+        using var content = BuildForm(fields: "*");
+
+        // Act
+        var response = await client.PostAsync("/api/verify", content);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+    }
+
+    [Fact]
     public async Task PostVerify_WhenExtractorThrows_ReturnsProblemDetails500()
     {
         // Arrange — swap in an extractor that throws; GlobalExceptionHandler should turn that into
@@ -295,5 +317,14 @@ public class VerificationApiTests : IClassFixture<WebApplicationFactory<Program>
 
         public Task<ExtractionResult> ExtractAsync(Stream image, string contentType, CancellationToken ct)
             => throw new InvalidOperationException("boom");
+    }
+
+    /// <summary>Stands in for the provider refusing this app's identity (missing/propagating role).</summary>
+    private sealed class UnauthenticatedExtractor : IDocumentExtractor
+    {
+        public string Mode => "azure";
+
+        public Task<ExtractionResult> ExtractAsync(Stream image, string contentType, CancellationToken ct)
+            => throw new ProviderAuthenticationException("nope");
     }
 }

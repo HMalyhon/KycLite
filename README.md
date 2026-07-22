@@ -36,8 +36,10 @@ Browser (Vue 3) ──HTTP──► ASP.NET Core API ──► IDocumentExtracto
   On-or-before) to any field of a matching type, and every result folds into a single approve/reject
   verdict. A check that can't be evaluated (unknown field/rule, or a type mismatch) is reported as
   *ignored* rather than silently dropped.
-- **Config via `.env`.** Credentials come from a `.env` file (or environment variables), never
-  committed. With no `.env`, the API runs on the offline mock.
+- **Config via `.env`, keyless in the cloud.** The provider endpoint comes from a `.env` file (or
+  environment variables), never committed; with no `.env`, the API runs on the offline mock. An
+  account key is optional — with none set the extractor authenticates with Entra ID
+  (`DefaultAzureCredential`), which is how the deployed app runs: no secret at all.
 - **Stateless & data-minimizing.** Nothing is persisted. The response returns only the fields the
   user asked for (validation still runs against the full extraction), which keeps PII exposure low.
 - **Defensive by default.** Uploads are checked by magic-byte signature (not just the spoofable
@@ -158,14 +160,15 @@ cd frontend && npm run format:check
 
 ## Enabling real Azure (optional)
 
-Copy the example env file and fill in your credentials — **no code or frontend change**:
+Copy the example env file and point it at your resource — **no code or frontend change**:
 
 ```bash
 cd backend/KycLite.Api
 cp .env.example .env
 # edit .env:
 #   DocumentIntelligence__Endpoint=https://<resource>.cognitiveservices.azure.com/
-#   DocumentIntelligence__ApiKey=<key>
+#   DocumentIntelligence__ApiKey=<key>      # optional — omit to authenticate with Entra ID
+az login   # only needed for the keyless path (needs "Cognitive Services User" on the resource)
 dotnet run
 ```
 
@@ -206,7 +209,9 @@ Every push to `main` that passes the quality gates is deployed to **Azure App Se
 `{ status, documentType, extractedFields, ruleResults[], ignoredChecks[], extractorMode }`.
 `fieldChecks` is a JSON array, e.g. `[{"field":"documentNumber","rule":"pattern","param":"^[A-Z0-9]+$"}]`.
 Beyond `200`, it can return `400` (bad upload / malformed `fieldChecks`), `422` (the provider couldn't
-read the document), `429` (rate limit), and `504` (provider timeout) — all as RFC 7807 `ProblemDetails`.
+read the document), `429` (rate limit), `503` (the provider rejected this app's credentials — a
+deployment fault, typically a missing role assignment) and `504` (provider timeout) — all as
+RFC 7807 `ProblemDetails`.
 
 ## Validation — field-rules
 
