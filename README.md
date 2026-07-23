@@ -189,10 +189,21 @@ Every push to `main` that passes the quality gates is deployed to **Azure App Se
 - **OIDC, no stored secret.** GitHub Actions authenticates to Azure with a **federated identity**
   (`azure/login` via `id-token`), so there's no publish profile or client secret in the repo — the
   three `AZURE_*` values are non-sensitive identifiers.
-- **Infra as code.** [`infra/main.bicep`](infra/main.bicep) provisions the plan and web app;
-  [`infra/README.md`](infra/README.md) is the one-time setup (resource, Entra federation, secrets),
-  after which deploys are automatic. The deployed demo runs in **mock** mode unless
-  `DocumentIntelligence__*` app settings are supplied.
+- **Infra as code.** [`infra/main.bicep`](infra/main.bicep) provisions the plan, the web app and
+  the Document Intelligence resource, and wires them together; [`infra/README.md`](infra/README.md)
+  is the one-time setup (resources, Entra federation, secrets), after which deploys are automatic.
+- **No OCR key anywhere — managed identity.** The deployed app authenticates to Document
+  Intelligence as its **system-assigned identity**, granted `Cognitive Services User` on that one
+  resource; the account is provisioned with local (key) auth **disabled**. The only extraction
+  setting on the app is the endpoint, so there is no credential in the repo, in GitHub secrets, in
+  the build artifact, or in app configuration — nothing to rotate or leak. The same
+  `DefaultAzureCredential` path works locally against your `az login` identity.
+- **The deploy proves the pipeline works, not just that it booted.** The smoke test checks
+  `/health`, compares `/api/status` against the optional `EXPECTED_EXTRACTOR_MODE` repo variable,
+  and then **runs one real verification** against the deployed app. That last step is the one that
+  matters: `extractorMode: azure` only means an endpoint is configured, so without it a missing or
+  still-propagating role assignment would sail through the deploy and reach the first visitor as an
+  error.
 
 ## API
 

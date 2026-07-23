@@ -5,7 +5,9 @@
 # commands documented in the README's "Quality gate" section.
 #
 # The deploy job authenticates with OIDC (federated identity, no long-lived secret) and ships a
-# single App Service package: the published API with the built Vue app in wwwroot.
+# single App Service package: the published API with the built Vue app in wwwroot. It carries no
+# Document Intelligence credential at all — the deployed app authenticates to the OCR resource with
+# its managed identity, wired up once by infra/main.bicep.
 # One-time Azure setup: see infra/README.md.
 
 name: CI
@@ -123,7 +125,14 @@ jobs:
           package: publish
 
       - name: Smoke test
+        env:
+          # Read through the environment rather than interpolating the expression into the script,
+          # so its value is always data and never shell syntax.
+          EXPECTED_EXTRACTOR_MODE: ${{ vars.EXPECTED_EXTRACTOR_MODE }}
         run: |
+          # GitHub runs this with `bash -e` but not pipefail, so without this a failing curl in a
+          # pipeline is masked by the exit status of the command it feeds — a dead app would pass.
+          set -o pipefail
           base="${{ steps.webapp.outputs.webapp-url }}"
           # F1 cold starts can be slow; retry before declaring the deploy broken.
           for i in $(seq 1 10); do
@@ -132,3 +141,28 @@ jobs:
             sleep 15
           done
           curl -sSf --max-time 30 "$base/api/fields" | head -c 400
+
+          # Which engine the deployed app came up on. Set the repository variable
+          # EXPECTED_EXTRACTOR_MODE (azure or mock) to make this an assertion, so an infra change
+          # that drops the Document Intelligence app setting fails the deploy.
+          actual=$(curl -sSf --max-time 30 "$base/api/status" | sed -n 's/.*"extractorMode":"\([^"]*\)".*/\1/p')
+          [ -n "$actual" ] || { echo "could not read extractorMode from /api/status" >&2; exit 1; }
+          echo "extractor mode: $actual${EXPECTED_EXTRACTOR_MODE:+ (expected $EXPECTED_EXTRACTOR_MODE)}"
+          if [ -n "$EXPECTED_EXTRACTOR_MODE" ] && [ "$actual" != "$EXPECTED_EXTRACTOR_MODE" ]; then
+            echo "unexpected extractor mode" >&2
+            exit 1
+          fi
+
+          # `azure` only means an endpoint is configured — it does not prove the app's managed
+          # identity can actually get a token. So run one real verification: a missing or
+          # still-propagating role assignment fails the deploy here instead of reaching the first
+          # visitor as an opaque error. Costs one page of the free F0 quota per deploy.
+          code=$(curl -s -o probe.json -w '%{http_code}' --max-time 60 -X POST "$base/api/verify" \
+            -F 'file=@docs/screenshot.png' -F 'fields=*' -F 'fieldChecks=[]')
+          echo "verify probe: HTTP $code"
+          if [ "$code" != "200" ]; then
+            head -c 400 probe.json >&2
+            echo >&2
+            echo "the verification pipeline is not working end to end" >&2
+            exit 1
+          fi
