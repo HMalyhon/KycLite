@@ -18,8 +18,8 @@ public class VerificationServiceTests
     {
         var runner = new FieldCheckRunner(
         [
-            new RequiredCheck(), new PatternCheck(), new MinLengthCheck(), new ChecksumCheck(),
-            new DateOnOrAfterCheck(), new DateOnOrBeforeCheck(),
+            new RequiredRule(), new PatternRule(), new MinLengthRule(), new ChecksumRule(),
+            new DateOnOrAfterRule(), new DateOnOrBeforeRule(),
         ]);
         return new VerificationService(new FakeDocumentExtractor(doc, mode), runner, new FixedTimeProvider(Today));
     }

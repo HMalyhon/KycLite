@@ -131,12 +131,12 @@ else
 
 // --- Field-rules: the type-aware matrix the user composes checks from. Registering a rule
 // here makes it discoverable automatically via /api/field-rules and the UI. ---
-builder.Services.AddSingleton<IFieldRule, RequiredCheck>();
-builder.Services.AddSingleton<IFieldRule, PatternCheck>();
-builder.Services.AddSingleton<IFieldRule, MinLengthCheck>();
-builder.Services.AddSingleton<IFieldRule, ChecksumCheck>();
-builder.Services.AddSingleton<IFieldRule, DateOnOrAfterCheck>();
-builder.Services.AddSingleton<IFieldRule, DateOnOrBeforeCheck>();
+builder.Services.AddSingleton<IFieldRule, RequiredRule>();
+builder.Services.AddSingleton<IFieldRule, PatternRule>();
+builder.Services.AddSingleton<IFieldRule, MinLengthRule>();
+builder.Services.AddSingleton<IFieldRule, ChecksumRule>();
+builder.Services.AddSingleton<IFieldRule, DateOnOrAfterRule>();
+builder.Services.AddSingleton<IFieldRule, DateOnOrBeforeRule>();
 builder.Services.AddSingleton<FieldCheckRunner>();
 
 builder.Services.AddScoped<IVerificationService, VerificationService>();

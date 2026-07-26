@@ -3,7 +3,7 @@ using KycLite.Api.Catalog;
 namespace KycLite.Api.Validation.FieldRules;
 
 /// <summary>The field value must be at least N characters (after trimming).</summary>
-public sealed class MinLengthCheck : IFieldRule
+public sealed class MinLengthRule : IFieldRule
 {
     private static readonly string[] Types = [FieldTypes.Text];
 

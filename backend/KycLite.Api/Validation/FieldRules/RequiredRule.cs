@@ -3,7 +3,7 @@ using KycLite.Api.Catalog;
 namespace KycLite.Api.Validation.FieldRules;
 
 /// <summary>The field must be present and non-empty. Applies to any field type.</summary>
-public sealed class RequiredCheck : IFieldRule
+public sealed class RequiredRule : IFieldRule
 {
     private static readonly string[] Types = [FieldTypes.Text, FieldTypes.Date, FieldTypes.Mrz];
 

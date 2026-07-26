@@ -4,7 +4,7 @@ using KycLite.Api.Catalog;
 namespace KycLite.Api.Validation.FieldRules;
 
 /// <summary>The field value must match a user-supplied regular expression.</summary>
-public sealed class PatternCheck : IFieldRule
+public sealed class PatternRule : IFieldRule
 {
     // Guards against catastrophic backtracking (ReDoS) on attacker-supplied patterns.
     private static readonly TimeSpan MatchTimeout = TimeSpan.FromMilliseconds(100);

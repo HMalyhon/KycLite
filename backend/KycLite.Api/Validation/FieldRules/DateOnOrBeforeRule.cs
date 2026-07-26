@@ -6,7 +6,7 @@ namespace KycLite.Api.Validation.FieldRules;
 /// The date field must be on or before (≤, "lower") the given date. Replicates "age ≥ 18"
 /// via the parameter "today-18y" (date of birth on or before today minus 18 years).
 /// </summary>
-public sealed class DateOnOrBeforeCheck : IFieldRule
+public sealed class DateOnOrBeforeRule : IFieldRule
 {
     private static readonly string[] Types = [FieldTypes.Date];
 

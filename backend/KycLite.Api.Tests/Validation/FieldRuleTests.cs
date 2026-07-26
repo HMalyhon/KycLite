@@ -10,29 +10,29 @@ public class FieldRuleTests
     // Reference date for the (date-agnostic) rules below; only the date rules actually read it.
     private static readonly DateOnly Today = new(2025, 1, 1);
 
-    // --- RequiredCheck ---
+    // --- RequiredRule ---
 
     [Theory]
     [InlineData("Erika", true)]
     [InlineData("", false)]
     [InlineData("   ", false)]
     [InlineData(null, false)]
-    public void Validate_RequiredCheck_PassesOnlyWhenValuePresent(string? value, bool expected)
+    public void Validate_RequiredRule_PassesOnlyWhenValuePresent(string? value, bool expected)
     {
         // Act
-        var result = new RequiredCheck().Validate(value, null, Today);
+        var result = new RequiredRule().Validate(value, null, Today);
 
         // Assert
         Assert.Equal(expected, result.Passed);
     }
 
-    // --- PatternCheck ---
+    // --- PatternRule ---
 
     [Fact]
     public void Validate_PatternWithMatchingValue_Passes()
     {
         // Act
-        var result = new PatternCheck().Validate("L898902C3", "^[A-Z0-9]+$", Today);
+        var result = new PatternRule().Validate("L898902C3", "^[A-Z0-9]+$", Today);
 
         // Assert
         Assert.True(result.Passed);
@@ -42,7 +42,7 @@ public class FieldRuleTests
     public void Validate_PatternWithNonMatchingValue_Fails()
     {
         // Act
-        var result = new PatternCheck().Validate("lower case", "^[A-Z0-9]+$", Today);
+        var result = new PatternRule().Validate("lower case", "^[A-Z0-9]+$", Today);
 
         // Assert
         Assert.False(result.Passed);
@@ -52,7 +52,7 @@ public class FieldRuleTests
     public void Validate_PatternWithoutParam_Fails()
     {
         // Act
-        var result = new PatternCheck().Validate("anything", null, Today);
+        var result = new PatternRule().Validate("anything", null, Today);
 
         // Assert
         Assert.False(result.Passed);
@@ -62,7 +62,7 @@ public class FieldRuleTests
     public void Validate_PatternWithInvalidRegex_FailsGracefully()
     {
         // Act
-        var result = new PatternCheck().Validate("anything", "([unclosed", Today);
+        var result = new PatternRule().Validate("anything", "([unclosed", Today);
 
         // Assert
         Assert.False(result.Passed);
@@ -77,40 +77,40 @@ public class FieldRuleTests
         var value = new string('a', 40) + "!";
 
         // Act
-        var result = new PatternCheck().Validate(value, "^(a+)+$", Today);
+        var result = new PatternRule().Validate(value, "^(a+)+$", Today);
 
         // Assert
         Assert.False(result.Passed);
         Assert.Contains("too long", result.Message);
     }
 
-    // --- MinLengthCheck ---
+    // --- MinLengthRule ---
 
     [Theory]
     [InlineData("Erika", "2", true)]
     [InlineData("E", "2", false)]
     [InlineData("  E  ", "2", false)] // trimmed length is 1
     [InlineData("anything", "abc", false)] // non-numeric param
-    public void Validate_MinLengthCheck_PassesOnlyWhenAtLeastMinChars(string value, string param, bool expected)
+    public void Validate_MinLengthRule_PassesOnlyWhenAtLeastMinChars(string value, string param, bool expected)
     {
         // Act
-        var result = new MinLengthCheck().Validate(value, param, Today);
+        var result = new MinLengthRule().Validate(value, param, Today);
 
         // Assert
         Assert.Equal(expected, result.Passed);
     }
 
-    // --- ChecksumCheck (ICAO 9303 MRZ check digits) ---
+    // --- ChecksumRule (ICAO 9303 MRZ check digits) ---
 
     [Fact]
-    public void Validate_ChecksumCheck_PassesForValidMrz()
+    public void Validate_ChecksumRule_PassesForValidMrz()
     {
         // Arrange — canonical ICAO 9303 TD3 specimen (consistent with the 7-3-1 algorithm).
         const string validMrz =
             "P<UTOERIKSSON<<ANNA<MARIA<<<<<<<<<<<<<<<<<<<\nL898902C36UTO7408122F1204159ZE184226B<<<<<10";
 
         // Act
-        var result = new ChecksumCheck().Validate(validMrz, null, Today);
+        var result = new ChecksumRule().Validate(validMrz, null, Today);
 
         // Assert
         Assert.True(result.Passed, result.Message);
@@ -120,10 +120,10 @@ public class FieldRuleTests
     [InlineData("")]
     [InlineData(null)]
     [InlineData("L898902C3")] // a bare document number is not an MRZ
-    public void Validate_ChecksumCheck_FailsForMissingOrNonMrz(string? value)
+    public void Validate_ChecksumRule_FailsForMissingOrNonMrz(string? value)
     {
         // Act
-        var result = new ChecksumCheck().Validate(value, null, Today);
+        var result = new ChecksumRule().Validate(value, null, Today);
 
         // Assert
         Assert.False(result.Passed);
@@ -132,7 +132,7 @@ public class FieldRuleTests
     // --- FieldCheckRunner ---
 
     private static FieldCheckRunner BuildRunner() =>
-        new(new IFieldRule[] { new RequiredCheck(), new PatternCheck(), new MinLengthCheck() });
+        new(new IFieldRule[] { new RequiredRule(), new PatternRule(), new MinLengthRule() });
 
     [Fact]
     public void Run_ValidCheck_LabelsResultWithFieldAndRule()

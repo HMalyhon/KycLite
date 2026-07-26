@@ -7,7 +7,7 @@ namespace KycLite.Api.Validation.FieldRules;
 /// an MRZ-only concept, so — unlike the other text rules — it applies solely to the MRZ field: a
 /// printed name or document number carries no check digit, and offering it there is meaningless.
 /// </summary>
-public sealed class ChecksumCheck : IFieldRule
+public sealed class ChecksumRule : IFieldRule
 {
     private static readonly string[] Types = [FieldTypes.Mrz];
 

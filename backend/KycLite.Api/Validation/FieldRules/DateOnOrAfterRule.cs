@@ -6,7 +6,7 @@ namespace KycLite.Api.Validation.FieldRules;
 /// The date field must be on or after (≥, "greater") the given date. Replicates "not expired"
 /// via the parameter "today".
 /// </summary>
-public sealed class DateOnOrAfterCheck : IFieldRule
+public sealed class DateOnOrAfterRule : IFieldRule
 {
     private static readonly string[] Types = [FieldTypes.Date];
 
