@@ -4,6 +4,7 @@ using Azure.AI.DocumentIntelligence;
 using Azure.Identity;
 using KycLite.Api.Catalog;
 using KycLite.Api.Models;
+using KycLite.Api.Validation;
 using Microsoft.Extensions.Options;
 
 namespace KycLite.Api.Extraction;
@@ -96,20 +97,30 @@ public sealed class AzureDocumentExtractor(IOptions<DocumentIntelligenceOptions>
         AnalyzeResult analyze = operation.Value;
         var result = new ExtractionResult { DocumentType = DefaultDocumentType };
 
-        if (analyze.Documents is not [var document, ..]) return result;
-
-        result.DocumentType = string.IsNullOrEmpty(document.DocumentType) ? DefaultDocumentType : document.DocumentType;
-
-        foreach (var (azureName, canonical) in FieldMap)
+        if (analyze.Documents is [var document, ..])
         {
-            if (document.Fields.TryGetValue(azureName, out DocumentField? field) && field is not null)
+            result.DocumentType = string.IsNullOrEmpty(document.DocumentType) ? DefaultDocumentType : document.DocumentType;
+
+            foreach (var (azureName, canonical) in FieldMap)
             {
-                var value = Normalize(field);
-                if (!string.IsNullOrWhiteSpace(value))
+                if (document.Fields.TryGetValue(azureName, out DocumentField? field) && field is not null)
                 {
-                    result.Fields[canonical] = new FieldValue(value, field.Confidence);
+                    var value = Normalize(field);
+                    if (!string.IsNullOrWhiteSpace(value))
+                    {
+                        result.Fields[canonical] = new FieldValue(value, field.Confidence);
+                    }
                 }
             }
+        }
+
+        // The prebuilt-idDocument model reads the front (visual zone) and returns no structured MRZ
+        // for a back/MRZ-only image. When we haven't captured one that way, recover it from the raw
+        // OCR text so a back-of-card upload still feeds the checksum rule.
+        if (!result.Fields.ContainsKey(FieldKeys.MachineReadableZone)
+            && Mrz.ExtractFromText(analyze.Content) is { } mrz)
+        {
+            result.Fields[FieldKeys.MachineReadableZone] = new FieldValue(mrz, null);
         }
 
         return result;

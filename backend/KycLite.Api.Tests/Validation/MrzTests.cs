@@ -91,4 +91,55 @@ public class MrzTests
         // Assert
         Assert.True(result.Valid, result.Message);
     }
+
+    [Fact]
+    public void ExtractFromText_RecoversTd1MrzFromNoisyOcrContent()
+    {
+        // Arrange — mimics the real back-of-card OCR: front-side label noise, then the three TD1
+        // lines with stray spaces between groups (as Azure's raw content returns them).
+        var content = string.Join(
+            '\n',
+            "REMARQUES REMARKS",
+            "MARCHE DU TRAVAIL: LIMITE",
+            "04 08 2023",
+            "I<UTOD231458907 <<<<<<<<<<<<<<<",
+            "7408122F1204159UTO<<<<<<<<<<<6",
+            "ERIKSSON<<ANNA<MARIA<<<<<<<<<<");
+
+        // Act
+        var mrz = Mrz.ExtractFromText(content);
+
+        // Assert — recovered and, once recovered, valid.
+        Assert.NotNull(mrz);
+        Assert.True(Mrz.Validate(mrz).Valid, mrz);
+    }
+
+    [Fact]
+    public void ExtractFromText_RecoversTd3MrzFromNoisyOcrContent()
+    {
+        // Arrange — passport data page noise followed by the two TD3 lines, spaces interspersed.
+        var content = string.Join(
+            '\n',
+            "PASSPORT PASSEPORT",
+            "Type P  Code UTO",
+            Td3Line1 + "  ",
+            "  " + Td3Line2);
+
+        // Act
+        var mrz = Mrz.ExtractFromText(content);
+
+        // Assert
+        Assert.NotNull(mrz);
+        Assert.True(Mrz.Validate(mrz).Valid, mrz);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("REMARKS\nMARCHE DU TRAVAIL\n04 08 2023\nno machine-readable zone here")]
+    public void ExtractFromText_ReturnsNull_WhenNoMrzPresent(string? content)
+    {
+        // Act & Assert
+        Assert.Null(Mrz.ExtractFromText(content));
+    }
 }

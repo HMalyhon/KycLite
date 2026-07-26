@@ -18,7 +18,7 @@ public static class Mrz
 
         // Azure and OCR generally hand back the MRZ as two/three lines separated by newlines; strip
         // every whitespace character and upper-case so the fixed-width layout below lines up.
-        var mrz = new string(raw.Where(c => !char.IsWhiteSpace(c)).Select(char.ToUpperInvariant).ToArray());
+        var mrz = Compact(raw);
 
         if (!mrz.All(IsMrzChar))
             return new MrzResult(false, "MRZ contains characters outside the A–Z 0–9 < alphabet.");
@@ -29,6 +29,46 @@ public static class Mrz
             90 => ValidateTd1(mrz),
             _ => new MrzResult(false, $"Unrecognized MRZ length ({mrz.Length}); expected 88 (TD3) or 90 (TD1)."),
         };
+    }
+
+    /// <summary>
+    /// Recovers a machine-readable zone from raw OCR text. The prebuilt-idDocument model reads the
+    /// front (visual zone) and returns no structured MRZ for a back/MRZ-only image, yet the OCR text
+    /// still contains the MRZ lines (often with stray spaces between groups). Finds the run of lines
+    /// that, once whitespace is stripped, form a TD3 (2×44) or TD1 (3×30) block over the MRZ
+    /// alphabet. Returns the reassembled MRZ, or null when none is present.
+    /// </summary>
+    public static string? ExtractFromText(string? content)
+    {
+        if (string.IsNullOrWhiteSpace(content)) return null;
+
+        var lines = content
+            .Split('\n', '\r')
+            .Select(Compact)
+            .Where(line => line.Length >= 28 && line.All(IsMrzChar))
+            .ToArray();
+
+        // TD3: two 44-char lines. Require a filler so an incidental block of text can't match.
+        for (var i = 0; i + 2 <= lines.Length; i++)
+        {
+            if (lines[i].Length == 44 && lines[i + 1].Length == 44)
+            {
+                var mrz = lines[i] + lines[i + 1];
+                if (mrz.Contains('<')) return mrz;
+            }
+        }
+
+        // TD1: three 30-char lines.
+        for (var i = 0; i + 3 <= lines.Length; i++)
+        {
+            if (lines[i].Length == 30 && lines[i + 1].Length == 30 && lines[i + 2].Length == 30)
+            {
+                var mrz = lines[i] + lines[i + 1] + lines[i + 2];
+                if (mrz.Contains('<')) return mrz;
+            }
+        }
+
+        return null;
     }
 
     // TD3 (passport): two 44-character lines. All check digits live on line 2.
@@ -63,6 +103,10 @@ public static class Mrz
 
         return new MrzResult(true, "All TD1 MRZ check digits are valid.");
     }
+
+    // Upper-case and strip every whitespace character, leaving the fixed-width MRZ characters.
+    private static string Compact(string raw) =>
+        new(raw.Where(c => !char.IsWhiteSpace(c)).Select(char.ToUpperInvariant).ToArray());
 
     private static bool DigitMatches(string data, char checkDigit) =>
         char.IsDigit(checkDigit) && Mrz731.ComputeCheckDigit(data) == checkDigit - '0';
