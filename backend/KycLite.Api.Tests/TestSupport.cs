@@ -19,9 +19,11 @@ internal static class Doc
     public static ExtractionResult Valid() => With(
         (FieldKeys.FirstName, "Erika"),
         (FieldKeys.LastName, "Mustermann"),
-        (FieldKeys.DocumentNumber, "L898902C3"), // valid ICAO trailing check digit
+        (FieldKeys.DocumentNumber, "L898902C"), // as printed (VIZ); the check digit lives in the MRZ
         (FieldKeys.DateOfBirth, "1990-01-15"),
-        (FieldKeys.DateOfExpiration, "2031-06-29"));
+        (FieldKeys.DateOfExpiration, "2031-06-29"),
+        // Canonical ICAO 9303 TD3 specimen — a valid MRZ for the checksum rule.
+        (FieldKeys.MachineReadableZone, "P<UTOERIKSSON<<ANNA<MARIA<<<<<<<<<<<<<<<<<<<\nL898902C36UTO7408122F1204159ZE184226B<<<<<10"));
 }
 
 /// <summary>Configurable extractor so service tests don't depend on Azure or the real mock.</summary>

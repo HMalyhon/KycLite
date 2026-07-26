@@ -14,6 +14,7 @@ public static class FieldKeys
     public const string Nationality = "nationality";
     public const string CountryRegion = "countryRegion";
     public const string Address = "address";
+    public const string MachineReadableZone = "machineReadableZone";
 }
 
 /// <summary>Field data types — the rows of the field-rule matrix.</summary>
@@ -21,6 +22,9 @@ public static class FieldTypes
 {
     public const string Text = "text";
     public const string Date = "date";
+
+    /// <summary>An ICAO 9303 machine-readable zone; the only type the checksum rule applies to.</summary>
+    public const string Mrz = "mrz";
 }
 
 /// <summary>
@@ -40,6 +44,7 @@ public static class FieldCatalog
         new(FieldKeys.Nationality, "Nationality", FieldTypes.Text),
         new(FieldKeys.CountryRegion, "Country / region", FieldTypes.Text),
         new(FieldKeys.Address, "Address", FieldTypes.Text),
+        new(FieldKeys.MachineReadableZone, "Machine-readable zone", FieldTypes.Mrz),
     ];
 
     private static readonly Dictionary<string, FieldDescriptor> ByKey =

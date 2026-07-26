@@ -5,7 +5,7 @@ namespace KycLite.Api.Validation.FieldRules;
 /// <summary>The field must be present and non-empty. Applies to any field type.</summary>
 public sealed class RequiredCheck : IFieldRule
 {
-    private static readonly string[] Types = [FieldTypes.Text, FieldTypes.Date];
+    private static readonly string[] Types = [FieldTypes.Text, FieldTypes.Date, FieldTypes.Mrz];
 
     public string Key => "required";
     public string DisplayName => "Required";

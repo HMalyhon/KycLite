@@ -19,7 +19,7 @@ public class VerificationApiTests : IClassFixture<WebApplicationFactory<Program>
     private const string DefaultChecksJson = """
         [{"field":"dateOfBirth","rule":"dateOnOrBefore","param":"today-18y"},
          {"field":"dateOfExpiration","rule":"dateOnOrAfter","param":"today"},
-         {"field":"documentNumber","rule":"checksum","param":null},
+         {"field":"documentNumber","rule":"pattern","param":"^[A-Z0-9]+$"},
          {"field":"firstName","rule":"required","param":null},
          {"field":"lastName","rule":"required","param":null}]
         """;
@@ -160,7 +160,7 @@ public class VerificationApiTests : IClassFixture<WebApplicationFactory<Program>
 
         // Assert
         Assert.NotNull(fields);
-        Assert.Equal(9, fields!.Count);
+        Assert.Equal(10, fields!.Count);
     }
 
     [Fact]
@@ -200,7 +200,7 @@ public class VerificationApiTests : IClassFixture<WebApplicationFactory<Program>
         Assert.NotNull(dto);
         Assert.Equal("Approve", dto!.Status);
         Assert.Equal("mock", dto.ExtractorMode);
-        Assert.Equal(9, dto.ExtractedFields.Count);
+        Assert.Equal(10, dto.ExtractedFields.Count);
         Assert.Equal(5, dto.RuleResults.Count);
         Assert.All(dto.RuleResults, r => Assert.True(r.Passed));
     }

@@ -15,12 +15,9 @@ public sealed class MockDocumentExtractor(TimeProvider clock) : IDocumentExtract
 
     public Task<ExtractionResult> ExtractAsync(Stream image, string contentType, CancellationToken ct)
     {
-        // Build a document number whose trailing digit is a valid ICAO 7-3-1 check digit,
-        // so the checksum rule passes against the mock just as it would for a real document.
-        const string baseNumber = "L898902C";
-        var documentNumber = baseNumber + Mrz731.ComputeCheckDigit(baseNumber);
-
         var today = DateOnly.FromDateTime(clock.GetUtcNow().UtcDateTime);
+        var dateOfBirth = new DateOnly(1990, 1, 15);
+        var dateOfExpiration = today.AddYears(5);
 
         var result = new ExtractionResult
         {
@@ -31,16 +28,53 @@ public sealed class MockDocumentExtractor(TimeProvider clock) : IDocumentExtract
             {
                 [FieldKeys.FirstName] = new("Erika", 0.991),
                 [FieldKeys.LastName] = new("Mustermann", 0.987),
-                [FieldKeys.DocumentNumber] = new(documentNumber, 0.972),
-                [FieldKeys.DateOfBirth] = new("1990-01-15", 0.965),
-                [FieldKeys.DateOfExpiration] = new(today.AddYears(5).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture), 0.958),
+                // The document number as printed (VIZ) — no check digit; that lives in the MRZ.
+                [FieldKeys.DocumentNumber] = new("L898902C", 0.972),
+                [FieldKeys.DateOfBirth] = new(dateOfBirth.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture), 0.965),
+                [FieldKeys.DateOfExpiration] = new(dateOfExpiration.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture), 0.958),
                 [FieldKeys.Sex] = new("F", 0.94),
                 [FieldKeys.Nationality] = new("UTO", 0.93),
                 [FieldKeys.CountryRegion] = new("UTO", 0.93),
                 [FieldKeys.Address] = new("123 Example Street, Sampletown", 0.81),
+                // A real TD3 MRZ with every check digit computed, so the checksum rule passes
+                // against the mock exactly as it would for a genuine passport.
+                [FieldKeys.MachineReadableZone] = new(BuildTd3Mrz(dateOfBirth, dateOfExpiration), 0.95),
             },
         };
 
         return Task.FromResult(result);
     }
+
+    /// <summary>
+    /// Assembles a valid ICAO 9303 TD3 (passport) MRZ for the sample identity, computing each
+    /// embedded check digit so <see cref="Mrz"/> validates it. The expiry date is dynamic, so the
+    /// second line must be built at runtime rather than hard-coded.
+    /// </summary>
+    private static string BuildTd3Mrz(DateOnly dateOfBirth, DateOnly dateOfExpiration)
+    {
+        // Line 1: document type, issuing country, surname << given names, filler-padded to 44.
+        var line1 = "P<UTOMUSTERMANN<<ERIKA".PadRight(44, '<');
+
+        // Line 2 body: number(9)+check, nationality, DOB+check, sex, expiry+check, personal(14)+check.
+        const string documentNumber = "L898902C<"; // 9-char field: "L898902C" padded with a filler
+        var dob = dateOfBirth.ToString("yyMMdd", CultureInfo.InvariantCulture);
+        var expiry = dateOfExpiration.ToString("yyMMdd", CultureInfo.InvariantCulture);
+        var personalNumber = new string('<', 14);
+
+        var body =
+            documentNumber + CheckDigit(documentNumber) +
+            "UTO" +
+            dob + CheckDigit(dob) +
+            "F" +
+            expiry + CheckDigit(expiry) +
+            personalNumber + CheckDigit(personalNumber);
+
+        // Composite check over number+check, DOB+check, and expiry+check .. personal+check.
+        var composite = body[0..10] + body[13..20] + body[21..43];
+        var line2 = body + CheckDigit(composite);
+
+        return line1 + "\n" + line2;
+    }
+
+    private static char CheckDigit(string data) => (char)('0' + Mrz731.ComputeCheckDigit(data));
 }

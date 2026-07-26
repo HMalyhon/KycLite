@@ -38,7 +38,7 @@ public class VerificationServiceTests
         var checks = new[]
         {
             new FieldCheck(FieldKeys.FirstName, "required", null),
-            new FieldCheck(FieldKeys.DocumentNumber, "checksum", null),
+            new FieldCheck(FieldKeys.MachineReadableZone, "checksum", null),
         };
 
         // Act
@@ -87,8 +87,8 @@ public class VerificationServiceTests
         // Act
         var response = await Verify(svc, AllFields);
 
-        // Assert — Doc.Valid() populates 5 fields.
-        Assert.Equal(5, response.ExtractedFields.Count);
+        // Assert — Doc.Valid() populates 6 fields.
+        Assert.Equal(6, response.ExtractedFields.Count);
     }
 
     [Fact]
@@ -101,15 +101,15 @@ public class VerificationServiceTests
         var response = await Verify(svc, Array.Empty<string>());
 
         // Assert
-        Assert.Equal(5, response.ExtractedFields.Count);
+        Assert.Equal(6, response.ExtractedFields.Count);
     }
 
     [Fact]
     public async Task VerifyAsync_SpecificFieldSelection_ProjectsYetChecksRunOnFullExtraction()
     {
-        // Arrange — the check targets DocumentNumber, which is not part of the projection.
+        // Arrange — the check targets the MRZ, which is not part of the projection.
         var svc = BuildService(Doc.Valid());
-        var checks = new[] { new FieldCheck(FieldKeys.DocumentNumber, "checksum", null) };
+        var checks = new[] { new FieldCheck(FieldKeys.MachineReadableZone, "checksum", null) };
 
         // Act
         var response = await Verify(svc, new[] { FieldKeys.FirstName }, checks);
@@ -117,7 +117,7 @@ public class VerificationServiceTests
         // Assert — only the requested field is returned...
         Assert.Equal(new[] { FieldKeys.FirstName }, response.ExtractedFields.Keys);
         // ...yet the checksum check (on a non-projected field) still evaluated and passed.
-        Assert.True(response.RuleResults.Single(r => r.RuleKey == "documentNumber:checksum").Passed);
+        Assert.True(response.RuleResults.Single(r => r.RuleKey == "machineReadableZone:checksum").Passed);
     }
 
     [Fact]

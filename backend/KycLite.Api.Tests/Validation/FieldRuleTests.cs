@@ -100,20 +100,33 @@ public class FieldRuleTests
         Assert.Equal(expected, result.Passed);
     }
 
-    // --- ChecksumCheck (ICAO 9303 7-3-1 trailing check digit) ---
+    // --- ChecksumCheck (ICAO 9303 MRZ check digits) ---
+
+    [Fact]
+    public void Validate_ChecksumCheck_PassesForValidMrz()
+    {
+        // Arrange — canonical ICAO 9303 TD3 specimen (consistent with the 7-3-1 algorithm).
+        const string validMrz =
+            "P<UTOERIKSSON<<ANNA<MARIA<<<<<<<<<<<<<<<<<<<\nL898902C36UTO7408122F1204159ZE184226B<<<<<10";
+
+        // Act
+        var result = new ChecksumCheck().Validate(validMrz, null, Today);
+
+        // Assert
+        Assert.True(result.Passed, result.Message);
+    }
 
     [Theory]
-    [InlineData("L898902C3", true)]  // valid trailing check digit
-    [InlineData("L898902C4", false)] // wrong check digit
-    [InlineData("", false)]
-    [InlineData(null, false)]
-    public void Validate_ChecksumCheck_PassesOnlyForValidTrailingDigit(string? value, bool expected)
+    [InlineData("")]
+    [InlineData(null)]
+    [InlineData("L898902C3")] // a bare document number is not an MRZ
+    public void Validate_ChecksumCheck_FailsForMissingOrNonMrz(string? value)
     {
         // Act
         var result = new ChecksumCheck().Validate(value, null, Today);
 
         // Assert
-        Assert.Equal(expected, result.Passed);
+        Assert.False(result.Passed);
     }
 
     // --- FieldCheckRunner ---

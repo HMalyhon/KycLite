@@ -20,22 +20,6 @@ public static class Mrz731
         return sum % 10;
     }
 
-    /// <summary>
-    /// Validates a number whose final character is the embedded check digit.
-    /// Returns false when the number is too short or the last character is not a digit.
-    /// </summary>
-    public static bool ValidateWithTrailingCheckDigit(string number)
-    {
-        var cleaned = new string(number.Where(char.IsLetterOrDigit).ToArray()).ToUpperInvariant();
-        if (cleaned.Length < 2) return false;
-
-        var checkChar = cleaned[^1];
-        if (!char.IsDigit(checkChar)) return false;
-
-        var expected = ComputeCheckDigit(cleaned[..^1]);
-        return expected == (checkChar - '0');
-    }
-
     private static int CharValue(char c)
     {
         if (c is >= '0' and <= '9') return c - '0';

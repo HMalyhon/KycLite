@@ -38,6 +38,10 @@ public sealed class AzureDocumentExtractor(IOptions<DocumentIntelligenceOptions>
         ("Nationality", FieldKeys.Nationality),
         ("CountryRegion", FieldKeys.CountryRegion),
         ("Address", FieldKeys.Address),
+        // The prebuilt-idDocument model surfaces the MRZ region; its raw text arrives via the
+        // field Content fallback in Normalize. Confirm the exact shape against your SDK/model
+        // version — the checksum rule needs the full multi-line MRZ string, not a parsed subfield.
+        ("MachineReadableZone", FieldKeys.MachineReadableZone),
     ];
 
     // Keyless by default: with no ApiKey configured we authenticate with Entra ID, so the deployed
