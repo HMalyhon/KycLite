@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Threading.RateLimiting;
 using DotNetEnv;
 using KycLite.Api.Controllers;
@@ -36,6 +37,33 @@ builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+    // Answer a throttled caller with the same RFC 7807 shape every other API error uses (the
+    // default rejection writes an empty body), and tell them when the window reopens.
+    options.OnRejected = async (context, _) =>
+    {
+        var response = context.HttpContext.Response;
+        response.StatusCode = StatusCodes.Status429TooManyRequests;
+
+        if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter))
+        {
+            response.Headers.RetryAfter =
+                ((int)retryAfter.TotalSeconds).ToString(CultureInfo.InvariantCulture);
+        }
+
+        var problemDetails = context.HttpContext.RequestServices.GetRequiredService<IProblemDetailsService>();
+        await problemDetails.TryWriteAsync(new ProblemDetailsContext
+        {
+            HttpContext = context.HttpContext,
+            ProblemDetails =
+            {
+                Status = StatusCodes.Status429TooManyRequests,
+                Title = "Too many requests.",
+                Detail = "Rate limit exceeded. Please retry shortly.",
+            },
+        });
+    };
+
     options.AddPolicy(VerificationController.RateLimitPolicy, httpContext =>
         RateLimitPartition.GetFixedWindowLimiter(
             partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
@@ -123,6 +151,25 @@ app.UseCors(CorsPolicy);
 app.UseRateLimiter();
 app.MapControllers();
 app.MapHealthChecks("/health");
+
+// Unmatched /api/* requests must not fall through to the SPA shell (or a blank 404): answer them
+// as RFC 7807, like every other API error. This pattern carries a literal "api" segment, so it
+// out-ranks the catch-all SPA fallback below for API paths; registered unconditionally so the
+// behaviour is identical with or without a bundled frontend.
+app.MapFallback("/api/{**rest}", async (HttpContext http, IProblemDetailsService problemDetails) =>
+{
+    http.Response.StatusCode = StatusCodes.Status404NotFound;
+    await problemDetails.TryWriteAsync(new ProblemDetailsContext
+    {
+        HttpContext = http,
+        ProblemDetails =
+        {
+            Status = StatusCodes.Status404NotFound,
+            Title = "Not found.",
+            Detail = $"No API endpoint matches '{http.Request.Path}'.",
+        },
+    });
+});
 
 // Single-app hosting (Azure App Service): when the built Vue frontend has been published into
 // wwwroot, serve it from this process — same origin, so the SPA's relative /api calls just work.

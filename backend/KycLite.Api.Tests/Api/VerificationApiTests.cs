@@ -112,6 +112,47 @@ public class VerificationApiTests : IClassFixture<WebApplicationFactory<Program>
     }
 
     [Fact]
+    public async Task PostVerify_WhenRateLimited_Returns429ProblemDetails()
+    {
+        // Arrange — an isolated app instance so exhausting the limiter doesn't disturb the other
+        // verify tests (the limiter is a singleton, and the in-memory server has no client IP, so
+        // every request shares one partition).
+        var client = _factory.WithWebHostBuilder(_ => { }).CreateClient();
+
+        // Act — drive past the 20 req/min window; capture the first rejected response.
+        HttpResponseMessage? limited = null;
+        for (var i = 0; i < 25; i++)
+        {
+            using var content = BuildForm(fields: "firstName");
+            var response = await client.PostAsync("/api/verify", content);
+            if (response.StatusCode == HttpStatusCode.TooManyRequests)
+            {
+                limited = response;
+                break;
+            }
+
+            response.Dispose();
+        }
+
+        // Assert — the rejection carries the RFC 7807 shape and a Retry-After hint, not an empty body.
+        Assert.NotNull(limited);
+        Assert.Equal("application/problem+json", limited!.Content.Headers.ContentType?.MediaType);
+        Assert.NotNull(limited.Headers.RetryAfter);
+        limited.Dispose();
+    }
+
+    [Fact]
+    public async Task GetUnknownApiRoute_ReturnsProblemDetails404()
+    {
+        // Act — a path under /api that no controller serves.
+        var response = await _client.GetAsync("/api/does-not-exist");
+
+        // Assert — a 404, but as ProblemDetails, not an empty body or the SPA shell.
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+    }
+
+    [Fact]
     public async Task GetFields_WhenCalled_ReturnsCatalog()
     {
         // Act
