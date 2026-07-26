@@ -218,6 +218,41 @@ public class VerificationApiTests : IClassFixture<WebApplicationFactory<Program>
     }
 
     [Fact]
+    public async Task PostVerify_WithRulelessFieldCheck_SurfacesIgnoredWithout500()
+    {
+        // Arrange — a check missing its rule (valid JSON, non-nullable record aside) must be
+        // reported as ignored, not crash the pipeline with a 500.
+        using var content = BuildForm(fields: "*", fieldChecks: """[{"field":"firstName"}]""");
+
+        // Act
+        var response = await _client.PostAsync("/api/verify", content);
+        var dto = await response.Content.ReadFromJsonAsync<VerifyDto>(Json);
+
+        // Assert
+        response.EnsureSuccessStatusCode();
+        Assert.NotNull(dto);
+        Assert.Empty(dto!.RuleResults);
+        Assert.Equal("firstName", Assert.Single(dto.IgnoredChecks).Field);
+    }
+
+    [Fact]
+    public async Task PostVerify_WithNullFieldCheckElement_SurfacesIgnoredWithout500()
+    {
+        // Arrange — fieldChecks=[null] used to dereference a null element and 500.
+        using var content = BuildForm(fields: "*", fieldChecks: "[null]");
+
+        // Act
+        var response = await _client.PostAsync("/api/verify", content);
+        var dto = await response.Content.ReadFromJsonAsync<VerifyDto>(Json);
+
+        // Assert
+        response.EnsureSuccessStatusCode();
+        Assert.NotNull(dto);
+        Assert.Empty(dto!.RuleResults);
+        Assert.Single(dto.IgnoredChecks);
+    }
+
+    [Fact]
     public async Task PostVerify_WithMalformedFieldChecks_Returns400()
     {
         // Arrange

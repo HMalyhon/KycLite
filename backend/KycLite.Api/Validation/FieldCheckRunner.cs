@@ -23,19 +23,27 @@ public sealed class FieldCheckRunner(IEnumerable<IFieldRule> rules)
 
         foreach (var check in checks)
         {
-            // A check that can't produce a meaningful verdict — an incomplete check, an unknown
+            // A check that can't produce a meaningful verdict — a null/incomplete entry, an unknown
             // field or rule, or a (field, rule) pair the type matrix doesn't allow — is excluded
             // from the verdict (so a hand-crafted request can't manufacture a spurious rejection)
-            // but recorded as ignored, so the caller isn't misled into thinking it passed.
-            if (string.IsNullOrWhiteSpace(check.Field) || !FieldCatalog.IsKnown(check.Field))
+            // but recorded as ignored, so the caller isn't misled into thinking it passed. The JSON
+            // body can yield a null element (fieldChecks=[null]) or null members regardless of the
+            // non-nullable record shape, so the guards below are deliberately defensive.
+            if (check is null)
             {
-                ignored.Add(new IgnoredCheck(check.Field, check.Rule, "Unknown or missing field."));
+                ignored.Add(new IgnoredCheck(string.Empty, string.Empty, "Empty check."));
                 continue;
             }
 
-            if (!_rulesByKey.TryGetValue(check.Rule, out var rule))
+            if (string.IsNullOrWhiteSpace(check.Field) || !FieldCatalog.IsKnown(check.Field))
             {
-                ignored.Add(new IgnoredCheck(check.Field, check.Rule, "Unknown rule."));
+                ignored.Add(new IgnoredCheck(check.Field ?? string.Empty, check.Rule ?? string.Empty, "Unknown or missing field."));
+                continue;
+            }
+
+            if (string.IsNullOrWhiteSpace(check.Rule) || !_rulesByKey.TryGetValue(check.Rule, out var rule))
+            {
+                ignored.Add(new IgnoredCheck(check.Field, check.Rule ?? string.Empty, "Unknown or missing rule."));
                 continue;
             }
 

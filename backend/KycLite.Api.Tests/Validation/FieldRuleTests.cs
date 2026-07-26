@@ -69,6 +69,21 @@ public class FieldRuleTests
         Assert.Contains("Invalid pattern", result.Message);
     }
 
+    [Fact]
+    public void Validate_PatternWithCatastrophicBacktracking_TimesOutGracefully()
+    {
+        // Arrange — a classic ReDoS pattern against non-matching input backtracks exponentially;
+        // the rule's match timeout must turn that into a failed result, never a hung request.
+        var value = new string('a', 40) + "!";
+
+        // Act
+        var result = new PatternCheck().Validate(value, "^(a+)+$", Today);
+
+        // Assert
+        Assert.False(result.Passed);
+        Assert.Contains("too long", result.Message);
+    }
+
     // --- MinLengthCheck ---
 
     [Theory]
@@ -156,6 +171,41 @@ public class FieldRuleTests
         // Assert — neither counts toward the verdict, but both are surfaced as ignored.
         Assert.Empty(run.Evaluated);
         Assert.Equal(2, run.Ignored.Count);
+    }
+
+    [Fact]
+    public void Run_NullCheckElement_SkipsButRecordsAsIgnored()
+    {
+        // Arrange — a JSON body of fieldChecks=[null] deserializes to a null element; the runner
+        // must record it, not throw a NullReferenceException (which surfaced as a 500).
+        var runner = BuildRunner();
+        var checks = new FieldCheck[] { null! };
+
+        // Act
+        var run = runner.Run(checks, Doc.Valid(), Today);
+
+        // Assert
+        Assert.Empty(run.Evaluated);
+        Assert.Single(run.Ignored);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void Run_NullOrBlankRule_SkipsButRecordsAsIgnored(string? rule)
+    {
+        // Arrange — a check with no rule (fieldChecks=[{"field":"firstName"}]) must be ignored,
+        // not crash the runner on a null dictionary key (which surfaced as a 500).
+        var runner = BuildRunner();
+        var checks = new[] { new FieldCheck(FieldKeys.FirstName, rule!, null) };
+
+        // Act
+        var run = runner.Run(checks, Doc.Valid(), Today);
+
+        // Assert
+        Assert.Empty(run.Evaluated);
+        Assert.Equal(FieldKeys.FirstName, Assert.Single(run.Ignored).Field);
     }
 
     [Fact]
