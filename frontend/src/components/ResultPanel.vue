@@ -80,7 +80,7 @@ function humanize(key: string) {
         <Column header="Field">
           <template #body="{ data }">{{ humanize(data.key) }}</template>
         </Column>
-        <Column field="value" header="Value" body-class="tabular-nums" />
+        <Column field="value" header="Value" body-class="tabular-nums value-cell" />
         <Column header="Confidence" header-style="width:7rem">
           <template #body="{ data }">
             <Tag
@@ -141,5 +141,9 @@ h3 {
 }
 .ignored code {
   font-size: 0.85em;
+}
+
+:deep(.value-cell) {
+  overflow-wrap: anywhere;
 }
 </style>
