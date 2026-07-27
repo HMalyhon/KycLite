@@ -7,6 +7,4 @@ namespace KycLite.Api.Extraction;
 /// Mapped to <c>503</c> so an operator sees a diagnosable answer instead of a blanket 500.
 /// </summary>
 public sealed class ProviderAuthenticationException(string message, Exception? innerException = null)
-    : Exception(message, innerException)
-{
-}
+    : Exception(message, innerException);

@@ -1,3 +1,4 @@
+using System.Globalization;
 using KycLite.Api.Catalog;
 
 namespace KycLite.Api.Validation.FieldRules;
@@ -16,7 +17,7 @@ public sealed class MinLengthRule : IFieldRule
 
     public FieldRuleOutcome Validate(string? value, string? param, DateOnly today)
     {
-        if (!int.TryParse(param, out var min) || min < 0)
+        if (!int.TryParse(param, NumberStyles.Integer, CultureInfo.InvariantCulture, out var min) || min < 0)
             return new FieldRuleOutcome(false, "Invalid minimum length.");
 
         var length = value?.Trim().Length ?? 0;

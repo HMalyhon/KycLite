@@ -24,7 +24,7 @@ public sealed record RuleResult(string RuleKey, string RuleLabel, bool Passed, s
 public sealed record IgnoredCheck(string Field, string Rule, string Reason);
 
 /// <summary>The verdict returned to the web app.</summary>
-public sealed class VerifyResponse
+public sealed record VerifyResponse
 {
     /// <summary>"Approve" when every check passed; otherwise "Reject".</summary>
     public required string Status { get; init; }

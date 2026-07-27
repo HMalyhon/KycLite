@@ -17,6 +17,11 @@ public sealed class VerificationController(IVerificationService verification) : 
 
     private const long MaxUploadBytes = 10 * 1024 * 1024;
 
+    // Cap the whole multipart body a little above the file limit (form fields + boundaries add a
+    // little), so an oversized *file* is caught by the explicit check below — with a clear message —
+    // rather than tripping the framework's generic "request body too large" error first.
+    private const long MaxRequestBytes = MaxUploadBytes + (1 * 1024 * 1024);
+
     private static readonly string[] AllowedContentTypes =
         ["image/jpeg", "image/png", "image/tiff", "application/pdf"];
 
@@ -24,7 +29,7 @@ public sealed class VerificationController(IVerificationService verification) : 
 
     [HttpPost("verify")]
     [EnableRateLimiting(RateLimitPolicy)]
-    [RequestSizeLimit(MaxUploadBytes)]
+    [RequestSizeLimit(MaxRequestBytes)]
     [ProducesResponseType(typeof(VerifyResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status422UnprocessableEntity)]

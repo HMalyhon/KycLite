@@ -307,6 +307,34 @@ public class VerificationApiTests : IClassFixture<WebApplicationFactory<Program>
     }
 
     [Fact]
+    public async Task PostVerify_WhenFileExceedsSizeLimit_Returns400WithClearMessage()
+    {
+        // Arrange — a file over the 10 MB limit but under the (slightly larger) request cap, so the
+        // controller's own size check runs and returns its message rather than the framework's
+        // generic "request body too large".
+        var oversized = new byte[(10 * 1024 * 1024) + (256 * 1024)];
+        oversized[0] = 0x89;
+        oversized[1] = 0x50;
+        oversized[2] = 0x4E;
+        oversized[3] = 0x47;
+        var fileContent = new ByteArrayContent(oversized);
+        fileContent.Headers.ContentType = new MediaTypeHeaderValue("image/png");
+        using var content = new MultipartFormDataContent
+        {
+            { fileContent, "file", "big.png" },
+            { new StringContent("*"), "fields" },
+        };
+
+        // Act
+        var response = await _client.PostAsync("/api/verify", content);
+        var body = await response.Content.ReadAsStringAsync();
+
+        // Assert
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains("10 MB", body);
+    }
+
+    [Fact]
     public async Task PostVerify_WithoutFile_Returns400()
     {
         // Arrange
