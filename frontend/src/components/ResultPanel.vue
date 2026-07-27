@@ -48,7 +48,8 @@ function humanize(key: string) {
 
       <h3>Rule results</h3>
       <ul class="rules">
-        <li v-for="r in result.ruleResults" :key="r.ruleKey">
+        <!-- ruleKey isn't unique (two checks can share field:rule), so key by position. -->
+        <li v-for="(r, i) in result.ruleResults" :key="i">
           <i :class="r.passed ? 'pi pi-check-circle pass' : 'pi pi-times-circle fail'" />
           <span
             ><strong>{{ r.ruleLabel }}</strong> — {{ r.message }}</span
