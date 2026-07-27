@@ -19,7 +19,7 @@ mock. See the [root README](../README.md) for the project-level story and the ba
 
 ## Getting started
 
-Prerequisites: **Node 20+**, and the backend running on `http://localhost:5000`
+Prerequisites: **Node 20.19+ or 22.12+** (Vite 8 / ESLint 10 floors; CI uses Node 22), and the backend running on `http://localhost:5000`
 (see the [root README](../README.md#running-locally) — it runs offline on the mock extractor,
 no Azure account needed).
 
@@ -40,6 +40,16 @@ no CORS surprises.
 | `npm run preview` | Serve the production build locally |
 | `npm run test` | Run the unit tests once (Vitest) |
 | `npm run test:watch` | Run the unit tests in watch mode |
+| `npm run lint` | ESLint with `--max-warnings 0` (build-breaking gate) |
+| `npm run lint:fix` | ESLint with auto-fix |
+| `npm run format` | Prettier (write); `format:check` to verify without writing |
+
+## Quality gate
+
+`npm run lint` (ESLint + `eslint-plugin-vue`, `--max-warnings 0`) and `npm run format:check`
+(Prettier) are build-breaking, mirroring the backend's warnings-as-errors gate; CI runs both on
+every push/PR. Run `npm run lint:fix && npm run format` before committing. Prettier owns formatting
+(no semicolons, single quotes, width 100); ESLint's stylistic rules are off so the two never fight.
 
 ## Configuration
 

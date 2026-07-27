@@ -32,9 +32,11 @@ Browser (Vue 3) ──HTTP──► ASP.NET Core API ──► IDocumentExtracto
   validation); `VerificationService` owns the orchestration (extract → run the user's field checks →
   project fields). The Azure SDK call lives in exactly one place.
 - **One generic, type-aware validation mechanism.** Each request composes its own set of checks:
-  the user attaches **field-rules** (Required / Matches pattern / Min length / Checksum / On-or-after /
-  On-or-before) to any field of a matching type, and every result folds into a single approve/reject
-  verdict. A check that can't be evaluated (unknown field/rule, or a type mismatch) is reported as
+  the user attaches **field-rules** (Required / Matches pattern / Min length / MRZ checksum /
+  On-or-after / On-or-before) to a field of a matching type, and every result folds into a single
+  approve/reject verdict. The type matrix keeps a rule off fields it can't mean anything on — the
+  ICAO checksum, for instance, applies only to the machine-readable zone. A check that can't be
+  evaluated (unknown field/rule, a type mismatch, or a null/incomplete check) is reported as
   *ignored* rather than silently dropped.
 - **Config via `.env`, keyless in the cloud.** The provider endpoint comes from a `.env` file (or
   environment variables), never committed; with no `.env`, the API runs on the offline mock. An
@@ -53,16 +55,16 @@ backend/Directory.Build.props  solution-wide quality gate (warnings-as-errors, a
 backend/.editorconfig          house style + the curated analyzer/StyleCop ruleset (each opt-out has a reason)
 backend/KycLite.slnx           ties the API and test projects together
 backend/KycLite.Api/           ASP.NET Core (.NET 10) Web API (controllers)
-  Controllers/            CatalogController (catalogs), VerificationController (verify)
+  Controllers/            CatalogController (catalogs), StatusController (extractor mode), VerificationController (verify)
   Services/               IVerificationService — orchestrates extract → validate → project
   Extraction/             IDocumentExtractor + Azure & Mock implementations, options, exceptions
-  Validation/             IFieldRule + FieldCheckRunner, FileSignatures, ICAO 9303 checksum (Mrz731)
+  Validation/             IFieldRule + FieldCheckRunner, FileSignatures, MRZ check digits (Mrz731 + Mrz)
     FieldRules/           the six field-rules + DateParsing
   Infrastructure/         GlobalExceptionHandler (RFC 7807 ProblemDetails)
   Catalog/                discoverable field, field-rule & default-check definitions
   Models/                 API + extraction DTOs, verify form model
   .env.example            copy to .env to supply Azure credentials
-backend/KycLite.Api.Tests/ xUnit: field-rule, runner, checksum, service + API integration tests
+backend/KycLite.Api.Tests/ xUnit: field-rule, runner, MRZ, service + API integration tests
 frontend/                 Vue 3 + Vite + TypeScript + PrimeVue (Aura theme) — see frontend/README.md
   src/api/client.ts       typed API client (the only thing that talks to the backend)
   src/components/         UploadCard, FieldSelector, FieldRuleBuilder, ResultPanel
@@ -112,24 +114,27 @@ toolchain (scripts, config, and how the discovery-driven UI is wired).
 ## Tests
 
 ```bash
-cd backend && dotnet test    # xUnit: 67 unit + integration tests
+cd backend && dotnet test    # xUnit: 95 unit + integration tests
 cd frontend && npm run test  # Vitest: 32 unit tests
 ```
 
 The backend suite (`backend/KycLite.Api.Tests/`) covers:
 
-- **Field-rules** — Required / Pattern (incl. invalid-regex + ReDoS timeout) / MinLength / Checksum,
+- **Field-rules** — Required / Pattern (incl. invalid-regex + ReDoS timeout) / MinLength / MRZ checksum,
   and the date rules with relative params (age-18 and expiry boundaries, out-of-range offsets).
-- **`FieldCheckRunner`** — result labelling, and that unknown-field / unknown-rule / type-mismatched
-  checks are recorded as *ignored* (not silently dropped) rather than counted toward the verdict.
-- **`Mrz731`** — the 7-3-1 check-digit algorithm (known values, malformed input, separators).
+- **`FieldCheckRunner`** — result labelling, and that unknown-field / unknown-rule / type-mismatched /
+  null-or-incomplete checks are recorded as *ignored* (not silently dropped or 500'd) rather than
+  counted toward the verdict.
+- **`Mrz731` / `Mrz`** — the 7-3-1 check-digit primitive, and MRZ validation for TD3 (passport) and
+  TD1 (ID card) layouts, including recovery of the MRZ from raw OCR text (the back-of-card case).
 - **`VerificationService`** — verdict logic (incl. field checks folded in) against an injected
   `TimeProvider`, and that field projection narrows the response while rules still evaluate against
   the full extraction.
 - **API integration** (`WebApplicationFactory`) — `/api/fields`, `/api/field-rules`,
   `/api/default-checks`, and `/api/verify` over an in-memory server, including a spoofed-content
-  upload, surfaced ignored checks, and 400s for a missing file, unsupported content type, and
-  malformed `fieldChecks` JSON.
+  upload, surfaced ignored checks, ProblemDetails for rate-limited (429) and unknown-API (404)
+  requests, and 400s for a missing / oversized file, unsupported content type, and malformed
+  `fieldChecks` JSON.
 
 Tests follow the **Arrange-Act-Assert** convention.
 
@@ -229,19 +234,26 @@ RFC 7807 `ProblemDetails`.
 There is one generic, type-aware validation mechanism: the user attaches a **field-rule** to a field
 of a matching type, and every result folds into the single approve/reject verdict.
 
-| Key             | Applies to | Checks                                                          | Param                       |
-| --------------- | ---------- | -------------------------------------------------------------- | --------------------------- |
-| `required`      | text, date | The field is present and non-empty.                            | —                           |
-| `pattern`       | text       | The field matches a regex (ReDoS-guarded timeout).             | regex                       |
-| `minLength`     | text       | The field is at least N characters.                            | minimum length              |
-| `checksum`      | text       | The value ends in a valid ICAO 9303 (7-3-1) check digit.       | —                           |
-| `dateOnOrAfter` | date       | The date is ≥ the reference (e.g. "not expired").              | date or `today±offset`      |
-| `dateOnOrBefore`| date       | The date is ≤ the reference (e.g. age ≥ 18 via `today-18y`).   | date or `today±offset`      |
+| Key              | Applies to      | Checks                                                           | Param                  |
+| ---------------- | --------------- | ---------------------------------------------------------------- | ---------------------- |
+| `required`       | text, date, mrz | The field is present and non-empty.                              | —                      |
+| `pattern`        | text            | The field matches a regex (ReDoS-guarded timeout).               | regex                  |
+| `minLength`      | text            | The field is at least N characters.                              | minimum length         |
+| `checksum`       | mrz             | The MRZ's embedded ICAO 9303 (7-3-1) check digits are all valid. | —                      |
+| `dateOnOrAfter`  | date            | The date is ≥ the reference (e.g. "not expired").                | date or `today±offset` |
+| `dateOnOrBefore` | date            | The date is ≤ the reference (e.g. age ≥ 18 via `today-18y`).     | date or `today±offset` |
+
+The check digit is an MRZ construct — a printed name or document number carries none — so `checksum`
+applies only to the **machine-readable zone** field, not to arbitrary text (offering it there would
+be meaningless). The MRZ validator handles TD3 (passport) and TD1 (ID card) layouts; when a document
+is the back of an ID card, where the prebuilt model returns no structured fields, the MRZ is
+recovered from the raw OCR text.
 
 The default check set (`/api/default-checks`) reproduces the classic age-≥-18, not-expired,
-document-number-checksum, and name-present rules using these field-rules. A check the runner can't
-evaluate (unknown field/rule, or a rule that doesn't apply to the field's type) is returned under
-`ignoredChecks` with a reason, so it can't quietly count as a pass.
+document-number-**format**, and name-present rules using these field-rules (the MRZ checksum is
+available but not seeded, since not every upload carries one). A check the runner can't evaluate
+(unknown field/rule, a rule that doesn't apply to the field's type, or a null/incomplete check) is
+returned under `ignoredChecks` with a reason, so it can't quietly count as a pass.
 
 Add a rule by implementing `IFieldRule` and registering it in `Program.cs`; it appears automatically
 in `/api/field-rules` and the field-check builder.
