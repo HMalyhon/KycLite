@@ -11,8 +11,8 @@ using Microsoft.OpenApi;
 
 // Load .env (searching up the directory tree) into environment variables before configuration
 // is built, so DocumentIntelligence__* keys flow into IConfiguration.
-// If a variable already set in the real environment (or via .NET user-secrets) wins, which
-// is the precedence the README documents and the safer default on a host
+// NoClobber means a variable already set in the real environment (or via .NET user-secrets) wins,
+// which is the precedence the README documents and the safer default on a host.
 Env.TraversePath().NoClobber().Load();
 
 var builder = WebApplication.CreateBuilder(args);

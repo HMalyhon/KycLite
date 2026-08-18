@@ -95,7 +95,7 @@ curl http://localhost:5000/api/fields          # fields the user can request
 curl http://localhost:5000/api/field-rules     # field-rules the user can apply
 curl http://localhost:5000/api/default-checks  # the seed check set the UI starts with
 curl -F file=@some-id.jpg -F "fields=*" \
-     -F 'fieldChecks=[{"field":"dateOfBirth","rule":"dateOnOrBefore","param":"today-18y"},{"field":"documentNumber","rule":"checksum","param":null}]' \
+     -F 'fieldChecks=[{"field":"dateOfBirth","rule":"dateOnOrBefore","param":"today-18y"},{"field":"machineReadableZone","rule":"checksum","param":null}]' \
      http://localhost:5000/api/verify
 ```
 
