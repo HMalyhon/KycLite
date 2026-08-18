@@ -185,14 +185,25 @@ if (app.Environment.WebRootPath is { } webRoot && File.Exists(Path.Combine(webRo
     app.MapFallbackToFile("index.html");
 }
 
-app.Logger.LogInformation(
-    "Document extractor active: {Mode} ({Auth})",
-    diOptions.IsConfigured ? "azure" : "mock",
-    diOptions.IsConfigured ? (diOptions.UsesManagedIdentity ? "Entra ID / managed identity" : "account key") : "offline");
+var extractorMode = diOptions.IsConfigured ? "azure" : "mock";
+var extractorAuth = diOptions switch
+{
+    { IsConfigured: false } => "offline",
+    { UsesManagedIdentity: true } => "Entra ID / managed identity",
+    _ => "account key",
+};
 
-app.Run();
+app.Logger.LogInformation("Document extractor active: {Mode} ({Auth})", extractorMode, extractorAuth);
+
+await app.RunAsync();
 
 // Exposed so the integration tests can drive the real pipeline via WebApplicationFactory<Program>.
 public partial class Program
 {
+    // Never constructed — top-level statements put the entry point here, and WebApplicationFactory
+    // only needs the type. Non-public so it isn't mistaken for an instantiable type; not `static`
+    // because a static class can't be used as the TEntryPoint type argument.
+    protected Program()
+    {
+    }
 }

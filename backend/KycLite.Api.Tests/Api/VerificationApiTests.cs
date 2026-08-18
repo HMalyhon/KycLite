@@ -136,7 +136,7 @@ public class VerificationApiTests : IClassFixture<WebApplicationFactory<Program>
 
         // Assert — the rejection carries the RFC 7807 shape and a Retry-After hint, not an empty body.
         Assert.NotNull(limited);
-        Assert.Equal("application/problem+json", limited!.Content.Headers.ContentType?.MediaType);
+        Assert.Equal("application/problem+json", limited.Content.Headers.ContentType?.MediaType);
         Assert.NotNull(limited.Headers.RetryAfter);
         limited.Dispose();
     }
@@ -160,7 +160,7 @@ public class VerificationApiTests : IClassFixture<WebApplicationFactory<Program>
 
         // Assert
         Assert.NotNull(fields);
-        Assert.Equal(10, fields!.Count);
+        Assert.Equal(10, fields.Count);
     }
 
     [Fact]
@@ -171,7 +171,7 @@ public class VerificationApiTests : IClassFixture<WebApplicationFactory<Program>
 
         // Assert — required, pattern, minLength, checksum, dateOnOrAfter, dateOnOrBefore.
         Assert.NotNull(rules);
-        Assert.Equal(6, rules!.Count);
+        Assert.Equal(6, rules.Count);
     }
 
     [Fact]
@@ -182,7 +182,7 @@ public class VerificationApiTests : IClassFixture<WebApplicationFactory<Program>
 
         // Assert
         Assert.NotNull(checks);
-        Assert.Equal(5, checks!.Count);
+        Assert.Equal(5, checks.Count);
     }
 
     [Fact]
@@ -198,7 +198,7 @@ public class VerificationApiTests : IClassFixture<WebApplicationFactory<Program>
         // Assert
         response.EnsureSuccessStatusCode();
         Assert.NotNull(dto);
-        Assert.Equal("Approve", dto!.Status);
+        Assert.Equal("Approve", dto.Status);
         Assert.Equal("mock", dto.ExtractorMode);
         Assert.Equal(10, dto.ExtractedFields.Count);
         Assert.Equal(5, dto.RuleResults.Count);
@@ -217,7 +217,7 @@ public class VerificationApiTests : IClassFixture<WebApplicationFactory<Program>
 
         // Assert
         Assert.NotNull(dto);
-        Assert.Equal(2, dto!.ExtractedFields.Count);
+        Assert.Equal(2, dto.ExtractedFields.Count);
         Assert.True(dto.ExtractedFields.ContainsKey("firstName"));
         Assert.True(dto.ExtractedFields.ContainsKey("lastName"));
     }
@@ -236,7 +236,7 @@ public class VerificationApiTests : IClassFixture<WebApplicationFactory<Program>
 
         // Assert
         Assert.NotNull(dto);
-        Assert.Equal("Reject", dto!.Status);
+        Assert.Equal("Reject", dto.Status);
         Assert.Contains(dto.RuleResults, r => r.RuleKey == "firstName:pattern" && !r.Passed);
     }
 
@@ -254,7 +254,7 @@ public class VerificationApiTests : IClassFixture<WebApplicationFactory<Program>
 
         // Assert — no evaluated rule, but the dropped check is reported.
         Assert.NotNull(dto);
-        Assert.Empty(dto!.RuleResults);
+        Assert.Empty(dto.RuleResults);
         Assert.Equal("not-a-real-field", Assert.Single(dto.IgnoredChecks).Field);
     }
 
@@ -272,7 +272,7 @@ public class VerificationApiTests : IClassFixture<WebApplicationFactory<Program>
         // Assert
         response.EnsureSuccessStatusCode();
         Assert.NotNull(dto);
-        Assert.Empty(dto!.RuleResults);
+        Assert.Empty(dto.RuleResults);
         Assert.Equal("firstName", Assert.Single(dto.IgnoredChecks).Field);
     }
 
@@ -289,7 +289,7 @@ public class VerificationApiTests : IClassFixture<WebApplicationFactory<Program>
         // Assert
         response.EnsureSuccessStatusCode();
         Assert.NotNull(dto);
-        Assert.Empty(dto!.RuleResults);
+        Assert.Empty(dto.RuleResults);
         Assert.Single(dto.IgnoredChecks);
     }
 

@@ -27,4 +27,14 @@
     </PackageReference>
   </ItemGroup>
 
+  <!-- SonarAnalyzer (Sxxxx): the SonarQube/SonarLint C# rule set, running locally as a Roslyn
+       analyzer — no server, account or scanner involved. It overlaps the .NET analyzers on style
+       but adds bug/code-smell rules they don't cover. Build-time only, like StyleCop. -->
+  <ItemGroup>
+    <PackageReference Include="SonarAnalyzer.CSharp" Version="10.31.0.145097">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
 </Project>

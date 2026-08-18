@@ -11,6 +11,11 @@ public sealed record MrzResult(bool Valid, string Message);
 /// </summary>
 public static class Mrz
 {
+    // Hoisted out of the Split call below: passing the two chars inline reads as though it could
+    // bind to Split(char separator, int count) — it doesn't, but a named char[] settles it for the
+    // reader (and for the analyzers) without allocating a fresh array per call.
+    private static readonly char[] LineSeparators = ['\n', '\r'];
+
     public static MrzResult Validate(string? raw)
     {
         if (string.IsNullOrWhiteSpace(raw))
@@ -43,7 +48,7 @@ public static class Mrz
         if (string.IsNullOrWhiteSpace(content)) return null;
 
         var lines = content
-            .Split('\n', '\r')
+            .Split(LineSeparators)
             .Select(Compact)
             .Where(line => line.Length >= 28 && line.All(IsMrzChar))
             .ToArray();

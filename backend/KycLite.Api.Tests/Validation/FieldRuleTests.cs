@@ -72,8 +72,8 @@ public class FieldRuleTests
     [Fact]
     public void Validate_PatternWithCatastrophicBacktracking_TimesOutGracefully()
     {
-        // Arrange — a classic ReDoS pattern against non-matching input backtracks exponentially;
-        // the rule's match timeout must turn that into a failed result, never a hung request.
+        // Arrange — a classic ReDoS pattern against non-matching input backtracks exponentially.
+        // The rule's match timeout must turn that into a failed result, never a hung request.
         var value = new string('a', 40) + "!";
 
         // Act

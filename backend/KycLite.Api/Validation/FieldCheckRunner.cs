@@ -62,7 +62,7 @@ public sealed class FieldCheckRunner(IEnumerable<IFieldRule> rules)
 
             var label = string.IsNullOrWhiteSpace(check.Name)
                 ? $"{FieldCatalog.Label(check.Field)} · {rule.DisplayName}"
-                : check.Name!;
+                : check.Name;
 
             evaluated.Add(new RuleResult($"{check.Field}:{rule.Key}", label, outcome.Passed, outcome.Message));
         }
