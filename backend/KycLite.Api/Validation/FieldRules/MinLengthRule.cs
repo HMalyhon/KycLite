@@ -18,7 +18,7 @@ public sealed class MinLengthRule : IFieldRule
     public FieldRuleOutcome Validate(string? value, string? param, DateOnly today)
     {
         if (!int.TryParse(param, NumberStyles.Integer, CultureInfo.InvariantCulture, out var min) || min < 0)
-            return new FieldRuleOutcome(false, "Invalid minimum length.");
+            return FieldRuleOutcome.CannotEvaluate($"Invalid minimum length '{param}'.");
 
         var length = value?.Trim().Length ?? 0;
         return length >= min

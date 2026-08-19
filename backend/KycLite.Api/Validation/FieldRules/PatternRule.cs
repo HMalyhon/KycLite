@@ -19,8 +19,10 @@ public sealed class PatternRule : IFieldRule
 
     public FieldRuleOutcome Validate(string? value, string? param, DateOnly today)
     {
+        // No pattern, or one the regex engine won't compile: the check is malformed, so it can't
+        // be answered either way. A missing *value*, below, is a real failure — that's the document.
         if (string.IsNullOrWhiteSpace(param))
-            return new FieldRuleOutcome(false, "No pattern provided.");
+            return FieldRuleOutcome.CannotEvaluate("No pattern provided.");
         if (string.IsNullOrEmpty(value))
             return new FieldRuleOutcome(false, "Value is missing.");
 
@@ -32,11 +34,15 @@ public sealed class PatternRule : IFieldRule
         }
         catch (ArgumentException)
         {
-            return new FieldRuleOutcome(false, $"Invalid pattern /{param}/.");
+            return FieldRuleOutcome.CannotEvaluate($"Invalid pattern /{param}/.");
         }
         catch (RegexMatchTimeoutException)
         {
-            return new FieldRuleOutcome(false, "Pattern took too long to evaluate.");
+            // A pattern that blows the ReDoS budget is one we never got an answer out of. Reporting
+            // it as ignored costs nothing: the caller composes its own checks, so it could equally
+            // have sent none — whereas failing here would reject a document on the rule's own
+            // inability to run.
+            return FieldRuleOutcome.CannotEvaluate($"Pattern /{param}/ took too long to evaluate.");
         }
     }
 }

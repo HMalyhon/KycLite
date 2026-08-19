@@ -19,10 +19,12 @@ public sealed class DateOnOrAfterRule : IFieldRule
 
     public FieldRuleOutcome Validate(string? value, string? param, DateOnly today)
     {
+        // Resolve the reference first: if the question is malformed there is nothing to ask of the
+        // document, whatever its value says. An unreadable value, by contrast, is a real failure.
+        if (!DateParsing.TryResolveReference(param, today, out var reference))
+            return FieldRuleOutcome.CannotEvaluate($"Invalid date '{param}'.");
         if (!DateParsing.TryParseValue(value, out var date))
             return new FieldRuleOutcome(false, "Value missing or unreadable.");
-        if (!DateParsing.TryResolveReference(param, today, out var reference))
-            return new FieldRuleOutcome(false, $"Invalid date '{param}'.");
 
         return date >= reference
             ? new FieldRuleOutcome(true, $"{date:yyyy-MM-dd} is on or after {reference:yyyy-MM-dd}.")

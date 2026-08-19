@@ -36,8 +36,10 @@ Browser (Vue 3) ──HTTP──► ASP.NET Core API ──► IDocumentExtracto
   On-or-after / On-or-before) to a field of a matching type, and every result folds into a single
   approve/reject verdict. The type matrix keeps a rule off fields it can't mean anything on — the
   ICAO checksum, for instance, applies only to the machine-readable zone. A check that can't be
-  evaluated (unknown field/rule, a type mismatch, or a null/incomplete check) is reported as
-  *ignored* rather than silently dropped.
+  evaluated (unknown field/rule, a type mismatch, a null/incomplete check, or a param the rule
+  can't interpret) is reported as *ignored* rather than silently dropped — and, just as important,
+  never counted as a failure: a malformed request can't condemn a document that passes every
+  question actually asked of it.
 - **Config via `.env`, keyless in the cloud.** The provider endpoint comes from a `.env` file (or
   environment variables), never committed; with no `.env`, the API runs on the offline mock. An
   account key is optional — with none set the extractor authenticates with Entra ID
@@ -123,8 +125,9 @@ The backend suite (`backend/KycLite.Api.Tests/`) covers:
 - **Field-rules** — Required / Pattern (incl. invalid-regex + ReDoS timeout) / MinLength / MRZ checksum,
   and the date rules with relative params (age-18 and expiry boundaries, out-of-range offsets).
 - **`FieldCheckRunner`** — result labelling, and that unknown-field / unknown-rule / type-mismatched /
-  null-or-incomplete checks are recorded as *ignored* (not silently dropped or 500'd) rather than
-  counted toward the verdict.
+  null-or-incomplete checks, and checks whose param the rule can't interpret, are recorded as
+  *ignored* (not silently dropped or 500'd) rather than counted toward the verdict — while an
+  unreadable *value* stays a genuine failure.
 - **`Mrz731` / `Mrz`** — the 7-3-1 check-digit primitive, and MRZ validation for TD3 (passport) and
   TD1 (ID card) layouts, including recovery of the MRZ from raw OCR text (the back-of-card case).
 - **`VerificationService`** — verdict logic (incl. field checks folded in) against an injected
@@ -252,8 +255,14 @@ recovered from the raw OCR text.
 The default check set (`/api/default-checks`) reproduces the classic age-≥-18, not-expired,
 document-number-**format**, and name-present rules using these field-rules (the MRZ checksum is
 available but not seeded, since not every upload carries one). A check the runner can't evaluate
-(unknown field/rule, a rule that doesn't apply to the field's type, or a null/incomplete check) is
-returned under `ignoredChecks` with a reason, so it can't quietly count as a pass.
+(unknown field/rule, a rule that doesn't apply to the field's type, a null/incomplete check, or a
+param the rule can't interpret — a non-numeric length, an uncompilable regex, a date reference that
+resolves to nothing) is returned under `ignoredChecks` with a reason, so it can neither quietly
+count as a pass nor manufacture a rejection.
+
+The line is drawn at the **param**, not the value: `"today-18y"` is the question, the document's
+`dateOfBirth` is the answer. A question the rule can't parse is ignored; an answer it can't read is
+a failure, because the document is what's under test.
 
 Add a rule by implementing `IFieldRule` and registering it in `Program.cs`; it appears automatically
 in `/api/field-rules` and the field-check builder.

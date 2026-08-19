@@ -277,6 +277,32 @@ public class VerificationApiTests : IClassFixture<WebApplicationFactory<Program>
     }
 
     [Fact]
+    public async Task PostVerify_WithUninterpretableCheckParam_SurfacesIgnoredWithoutRejecting()
+    {
+        // Arrange — every field and rule resolves; only the params are nonsense. This used to come
+        // back as "Reject" with three failed rules, letting a malformed request condemn a document
+        // that passes every check actually asked of it.
+        const string checks = """
+            [{"field":"dateOfBirth","rule":"dateOnOrBefore","param":"banana"},
+             {"field":"firstName","rule":"minLength","param":"NaN"},
+             {"field":"firstName","rule":"pattern","param":"([unclosed"}]
+            """;
+        using var content = BuildForm(fields: "*", fieldChecks: checks);
+
+        // Act
+        var response = await _client.PostAsync("/api/verify", content);
+        var dto = await response.Content.ReadFromJsonAsync<VerifyDto>(Json);
+
+        // Assert — the verdict is untouched by input the server couldn't act on, and all three are
+        // reported rather than silently dropped.
+        response.EnsureSuccessStatusCode();
+        Assert.NotNull(dto);
+        Assert.Equal("Approve", dto.Status);
+        Assert.Empty(dto.RuleResults);
+        Assert.Equal(3, dto.IgnoredChecks.Count);
+    }
+
+    [Fact]
     public async Task PostVerify_WithNullFieldCheckElement_SurfacesIgnoredWithout500()
     {
         // Arrange — fieldChecks=[null] used to dereference a null element and 500.

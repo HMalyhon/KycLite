@@ -73,29 +73,43 @@ public class DateRuleTests
         // Act
         var result = new DateOnOrAfterRule().Validate(value, "today", Today);
 
-        // Assert
+        // Assert — the document is what's under test, so an unreadable value is a real failure
+        // that counts toward the verdict. Contrast the param cases below.
         Assert.False(result.Passed);
+        Assert.True(result.Evaluated);
     }
 
     [Fact]
-    public void Validate_InvalidReferenceParam_Fails()
+    public void Validate_InvalidReferenceParam_CannotEvaluate()
     {
         // Act
         var result = new DateOnOrBeforeRule().Validate("2020-01-01", "garbage", Today);
 
+        // Assert — the question is malformed, not the document: no verdict, so the runner ignores it.
+        Assert.False(result.Evaluated);
+        Assert.Contains("garbage", result.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Validate_InvalidReferenceParamWithUnreadableValue_StillCannotEvaluate()
+    {
+        // Act — both halves are bad; the param is resolved first, so this can't masquerade as a
+        // value failure and slip into the verdict.
+        var result = new DateOnOrAfterRule().Validate("not-a-date", "garbage", Today);
+
         // Assert
-        Assert.False(result.Passed);
+        Assert.False(result.Evaluated);
     }
 
     [Theory]
     [InlineData("today+9999y")]        // overflows DateOnly's year-9999 ceiling (AddYears)
     [InlineData("today+99999999999d")] // overflows int (amount parse)
-    public void Validate_OutOfRangeRelativeOffset_FailsGracefullyWithoutThrowing(string param)
+    public void Validate_OutOfRangeRelativeOffset_CannotEvaluateWithoutThrowing(string param)
     {
-        // Act — a crafted offset must yield a normal rule failure, never an unhandled exception (500).
+        // Act — a crafted offset must resolve to "unanswerable", never an unhandled exception (500).
         var result = new DateOnOrAfterRule().Validate("2020-01-01", param, Today);
 
         // Assert
-        Assert.False(result.Passed);
+        Assert.False(result.Evaluated);
     }
 }

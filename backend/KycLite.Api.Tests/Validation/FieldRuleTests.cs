@@ -49,39 +49,50 @@ public class FieldRuleTests
     }
 
     [Fact]
-    public void Validate_PatternWithoutParam_Fails()
+    public void Validate_PatternWithMissingValue_Fails()
+    {
+        // Act
+        var result = new PatternRule().Validate(null, "^[A-Z0-9]+$", Today);
+
+        // Assert — a missing value is the document's problem, so it counts toward the verdict.
+        Assert.False(result.Passed);
+        Assert.True(result.Evaluated);
+    }
+
+    [Fact]
+    public void Validate_PatternWithoutParam_CannotEvaluate()
     {
         // Act
         var result = new PatternRule().Validate("anything", null, Today);
 
         // Assert
-        Assert.False(result.Passed);
+        Assert.False(result.Evaluated);
     }
 
     [Fact]
-    public void Validate_PatternWithInvalidRegex_FailsGracefully()
+    public void Validate_PatternWithInvalidRegex_CannotEvaluate()
     {
         // Act
         var result = new PatternRule().Validate("anything", "([unclosed", Today);
 
-        // Assert
-        Assert.False(result.Passed);
-        Assert.Contains("Invalid pattern", result.Message);
+        // Assert — an uncompilable pattern is an unanswerable question, not a failed document.
+        Assert.False(result.Evaluated);
+        Assert.Contains("Invalid pattern", result.Message, StringComparison.Ordinal);
     }
 
     [Fact]
     public void Validate_PatternWithCatastrophicBacktracking_TimesOutGracefully()
     {
         // Arrange — a classic ReDoS pattern against non-matching input backtracks exponentially.
-        // The rule's match timeout must turn that into a failed result, never a hung request.
+        // The rule's match timeout must turn that into an unevaluated result, never a hung request.
         var value = new string('a', 40) + "!";
 
         // Act
         var result = new PatternRule().Validate(value, "^(a+)+$", Today);
 
-        // Assert
-        Assert.False(result.Passed);
-        Assert.Contains("too long", result.Message);
+        // Assert — we never got an answer out of the pattern, so the document can't be judged on it.
+        Assert.False(result.Evaluated);
+        Assert.Contains("too long", result.Message, StringComparison.Ordinal);
     }
 
     // --- MinLengthRule ---
@@ -90,7 +101,6 @@ public class FieldRuleTests
     [InlineData("Erika", "2", true)]
     [InlineData("E", "2", false)]
     [InlineData("  E  ", "2", false)] // trimmed length is 1
-    [InlineData("anything", "abc", false)] // non-numeric param
     public void Validate_MinLengthRule_PassesOnlyWhenAtLeastMinChars(string value, string param, bool expected)
     {
         // Act
@@ -98,6 +108,20 @@ public class FieldRuleTests
 
         // Assert
         Assert.Equal(expected, result.Passed);
+        Assert.True(result.Evaluated);
+    }
+
+    [Theory]
+    [InlineData("abc")] // not a number at all
+    [InlineData("-1")]  // a length no value can satisfy
+    [InlineData(null)]  // the rule requires a param
+    public void Validate_MinLengthWithUnparseableParam_CannotEvaluate(string? param)
+    {
+        // Act
+        var result = new MinLengthRule().Validate("anything", param, Today);
+
+        // Assert
+        Assert.False(result.Evaluated);
     }
 
     // --- ChecksumRule (ICAO 9303 MRZ check digits) ---
@@ -165,6 +189,31 @@ public class FieldRuleTests
 
         // Assert
         Assert.Equal("Address present", result.RuleLabel);
+    }
+
+    [Fact]
+    public void Run_CheckWithUninterpretableParam_SkipsButRecordsAsIgnored()
+    {
+        // Arrange — the field and rule both resolve; only the param is nonsense. Previously each of
+        // these counted as a failed rule, so a malformed request could force a rejection the
+        // document never earned.
+        var runner = BuildRunner();
+        var doc = Doc.With((FieldKeys.FirstName, "Erika"));
+        var checks = new[]
+        {
+            new FieldCheck(FieldKeys.FirstName, "minLength", "NaN"),
+            new FieldCheck(FieldKeys.FirstName, "pattern", "([unclosed"),
+        };
+
+        // Act
+        var run = runner.Run(checks, doc, Today);
+
+        // Assert — nothing reaches the verdict, and both are reported with the rule's own reason.
+        Assert.Empty(run.Evaluated);
+        Assert.Equal(2, run.Ignored.Count);
+        Assert.All(run.Ignored, i => Assert.Equal(FieldKeys.FirstName, i.Field));
+        Assert.Contains(run.Ignored, i => i.Reason.Contains("minimum length", StringComparison.Ordinal));
+        Assert.Contains(run.Ignored, i => i.Reason.Contains("Invalid pattern", StringComparison.Ordinal));
     }
 
     [Fact]

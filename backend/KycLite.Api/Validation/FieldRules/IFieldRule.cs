@@ -1,7 +1,22 @@
 namespace KycLite.Api.Validation.FieldRules;
 
-/// <summary>Result of running a field rule against a single field value.</summary>
-public sealed record FieldRuleOutcome(bool Passed, string Message);
+/// <summary>
+/// Result of running a field rule against a single field value. Three states, not two:
+/// <paramref name="Evaluated"/> distinguishes "I asked the question and the answer is no" from
+/// "the question itself was malformed". Only evaluated outcomes reach the verdict — see
+/// <see cref="FieldCheckRunner"/>. <paramref name="Passed"/> is false on an unevaluated outcome
+/// so that reading it without checking <paramref name="Evaluated"/> fails closed.
+/// </summary>
+public sealed record FieldRuleOutcome(bool Passed, string Message, bool Evaluated = true)
+{
+    /// <summary>
+    /// The <em>param</em> — not the document — is uninterpretable: an unparseable minimum length,
+    /// an invalid regex, a date reference that resolves to nothing. The check yields no verdict and
+    /// is reported as ignored, for the same reason an unknown field/rule pair is: a malformed
+    /// request must not be able to manufacture a rejection the document didn't earn.
+    /// </summary>
+    public static FieldRuleOutcome CannotEvaluate(string reason) => new(false, reason, Evaluated: false);
+}
 
 /// <summary>
 /// A generic check the user attaches to a field of a matching type (the field-rule matrix).
@@ -27,6 +42,9 @@ public interface IFieldRule
     /// <summary>
     /// Validate the extracted field value (null when the field was not extracted).
     /// <paramref name="today"/> is the reference date for relative date comparisons.
+    /// A rule that cannot make sense of <paramref name="param"/> must return
+    /// <see cref="FieldRuleOutcome.CannotEvaluate"/> rather than a failure — an unreadable
+    /// <paramref name="value"/>, by contrast, is a genuine failure: the document is what's under test.
     /// </summary>
     FieldRuleOutcome Validate(string? value, string? param, DateOnly today);
 }
