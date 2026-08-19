@@ -12,6 +12,9 @@ export interface FieldDescriptor {
 export interface ApiStatus {
   /** "azure" (real OCR) or "mock" (offline sample data). */
   extractorMode: string
+  /** The running build, stamped with the commit SHA at publish time. Unused by the UI — the
+   *  deploy smoke test polls it to confirm the new container is the one answering. */
+  version: string
 }
 
 export interface FieldRuleDescriptor {

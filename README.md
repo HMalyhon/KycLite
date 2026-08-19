@@ -116,7 +116,7 @@ toolchain (scripts, config, and how the discovery-driven UI is wired).
 ## Tests
 
 ```bash
-cd backend && dotnet test    # xUnit: 95 unit + integration tests
+cd backend && dotnet test    # xUnit: 101 unit + integration tests
 cd frontend && npm run test  # Vitest: 32 unit tests
 ```
 
@@ -206,18 +206,23 @@ Every push to `main` that passes the quality gates is deployed to **Azure App Se
   setting on the app is the endpoint, so there is no credential in the repo, in GitHub secrets, in
   the build artifact, or in app configuration — nothing to rotate or leak. The same
   `DefaultAzureCredential` path works locally against your `az login` identity.
-- **The deploy proves the pipeline works, not just that it booted.** The smoke test checks
-  `/health`, compares `/api/status` against the optional `EXPECTED_EXTRACTOR_MODE` repo variable,
-  and then **runs one real verification** against the deployed app. That last step is the one that
-  matters: `extractorMode: azure` only means an endpoint is configured, so without it a missing or
-  still-propagating role assignment would sail through the deploy and reach the first visitor as an
-  error.
+- **The deploy proves the pipeline works, not just that it booted.** App Service reports a
+  deployment successful and *then* recycles the container, so for ~20-30s the previous build is
+  still serving. The smoke test therefore waits until `/api/status` reports the commit SHA stamped
+  into this build before asserting anything — otherwise every check could pass against the container
+  being replaced, and a request in flight when the recycle lands comes back as a bodyless platform
+  500. Once the new build is confirmed live it checks `/health`, compares `extractorMode` against
+  the optional `EXPECTED_EXTRACTOR_MODE` repo variable, and **runs one real verification**. That
+  last step is the one that matters: `extractorMode: azure` only means an endpoint is configured, so
+  without it a missing or still-propagating role assignment would sail through the deploy and reach
+  the first visitor as an error. It is retried a few times, since one provider-side blip is not a
+  broken deployment.
 
 ## API
 
 | Method | Path                  | Purpose                                                                 |
 | ------ | --------------------- | ----------------------------------------------------------------------- |
-| GET    | `/api/status`         | Which extractor this instance runs (`azure`/`mock`); read on page load. |
+| GET    | `/api/status`         | Extractor (`azure`/`mock`) + the running build's commit SHA.            |
 | GET    | `/api/fields`         | Fields the user can request, each tagged with a type (drives the UI).   |
 | GET    | `/api/field-rules`    | Field-rules the user can attach to a field (key, label, param, types).  |
 | GET    | `/api/default-checks` | The seed check set the UI starts with.                                  |

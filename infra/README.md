@@ -92,8 +92,10 @@ are sensitive credentials — they only identify *which* tenant/app to ask for a
 | `AZURE_TENANT_ID`       | `az account show --query tenantId -o tsv`|
 | `AZURE_SUBSCRIPTION_ID` | `az account show --query id -o tsv`      |
 
-Push to `main` — the workflow builds both halves, deploys, and smoke-tests `/health`,
-`/api/fields` and `/api/status`.
+Push to `main` — the workflow builds both halves, deploys, waits for `/api/status` to report the
+commit SHA it just shipped (App Service keeps serving the previous container for ~20-30s after a
+deployment reports success), then smoke-tests `/health`, `/api/fields`, `/api/status` and one real
+verification.
 
 ## 4. Confirm the app is running real OCR
 
@@ -114,7 +116,10 @@ If the badge says *Mock extractor*, the endpoint app setting is missing — re-r
 uploads instead fail with **503** (`"The document provider is not accepting this application's
 credentials."`), the role assignment is the culprit: confirm it exists and give it a minute to
 propagate. The underlying Azure status is in the log stream (`az webapp log tail -g kyclite-rg -n
-kyclite`), not in the response.
+kyclite`), not in the response — step 1 turns on the filesystem application logging that makes that
+stream carry the app's own errors rather than only platform chatter. Azure resets that setting to
+`Off` after 12 hours, so re-run the template (or `az webapp log config --application-logging
+filesystem`) if you are debugging something older than that.
 
 ```bash
 az webapp identity show -g kyclite-rg -n kyclite --query principalId -o tsv

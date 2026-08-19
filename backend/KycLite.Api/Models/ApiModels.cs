@@ -9,9 +9,10 @@ public sealed record FieldDescriptor(string Key, string Label, string Type);
 /// <summary>
 /// Runtime state the web app reads on load. <paramref name="ExtractorMode"/> is "azure" or "mock",
 /// matching <see cref="VerifyResponse.ExtractorMode"/>, so the UI can say which engine is live
-/// before the first upload.
+/// before the first upload. <paramref name="Version"/> identifies the running build — the deploy
+/// smoke test polls it to confirm it is talking to the container it just shipped.
 /// </summary>
-public sealed record ApiStatus(string ExtractorMode);
+public sealed record ApiStatus(string ExtractorMode, string Version);
 
 /// <summary>Outcome of a single check.</summary>
 public sealed record RuleResult(string RuleKey, string RuleLabel, bool Passed, string Message);

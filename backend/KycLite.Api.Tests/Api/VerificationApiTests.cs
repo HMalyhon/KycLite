@@ -65,6 +65,10 @@ public class VerificationApiTests : IClassFixture<WebApplicationFactory<Program>
         // Assert — the page reads this on load; it must be the same mode a verify response reports.
         Assert.NotNull(status);
         Assert.Equal("azure", status.ExtractorMode);
+
+        // The deploy smoke test waits on this field to know the new container is the one answering,
+        // so it must always be populated — never null or empty, whatever the build stamped.
+        Assert.False(string.IsNullOrWhiteSpace(status.Version));
     }
 
     [Fact]

@@ -97,8 +97,14 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
+      # Stamp the commit SHA into the assembly so /api/status reports which build is running.
+      # IncludeSourceRevisionInInformationalVersion is disabled because the SDK otherwise appends
+      # "+<SourceRevisionId>", which would break the exact-match wait in the smoke test below.
       - name: Publish API
-        run: dotnet publish backend/KycLite.Api --configuration Release --output publish
+        run: >
+          dotnet publish backend/KycLite.Api --configuration Release --output publish
+          -p:InformationalVersion=${{ github.sha }}
+          -p:IncludeSourceRevisionInInformationalVersion=false
 
       - name: Build frontend
         working-directory: frontend
@@ -129,17 +135,32 @@ jobs:
           # Read through the environment rather than interpolating the expression into the script,
           # so its value is always data and never shell syntax.
           EXPECTED_EXTRACTOR_MODE: ${{ vars.EXPECTED_EXTRACTOR_MODE }}
+          EXPECTED_VERSION: ${{ github.sha }}
         run: |
           # GitHub runs this with `bash -e` but not pipefail, so without this a failing curl in a
           # pipeline is masked by the exit status of the command it feeds — a dead app would pass.
           set -o pipefail
           base="${{ steps.webapp.outputs.webapp-url }}"
-          # F1 cold starts can be slow; retry before declaring the deploy broken.
-          for i in $(seq 1 10); do
-            if curl -sSf --max-time 30 "$base/health" >/dev/null; then break; fi
-            [ "$i" = 10 ] && { echo "health check failed" >&2; exit 1; }
+
+          # Wait for *this* build to be the one answering. OneDeploy reports success and only then
+          # triggers a container recycle, so the previous container keeps serving for another
+          # ~20-30s. Polling /health would pass instantly against that old container: every
+          # assertion below would test the build we just replaced, and a request in flight when the
+          # recycle lands comes back as a bodyless platform 500. Matching the stamped SHA is the
+          # only signal that the new container is live. Also covers F1 cold starts.
+          for i in $(seq 1 20); do
+            live=$(curl -sS --max-time 30 "$base/api/status" 2>/dev/null \
+              | sed -n 's/.*"version":"\([^"]*\)".*/\1/p') || true
+            [ "$live" = "$EXPECTED_VERSION" ] && break
+            if [ "$i" = 20 ]; then
+              echo "timed out waiting for build $EXPECTED_VERSION (last saw '${live:-none}')" >&2
+              exit 1
+            fi
             sleep 15
           done
+          echo "live build: $live"
+
+          curl -sSf --max-time 30 "$base/health" >/dev/null
           curl -sSf --max-time 30 "$base/api/fields" | head -c 400
 
           # Which engine the deployed app came up on. Set the repository variable
@@ -156,13 +177,19 @@ jobs:
           # `azure` only means an endpoint is configured — it does not prove the app's managed
           # identity can actually get a token. So run one real verification: a missing or
           # still-propagating role assignment fails the deploy here instead of reaching the first
-          # visitor as an opaque error. Costs one page of the free F0 quota per deploy.
-          code=$(curl -s -o probe.json -w '%{http_code}' --max-time 60 -X POST "$base/api/verify" \
-            -F 'file=@docs/screenshot.png' -F 'fields=*' -F 'fieldChecks=[]')
-          echo "verify probe: HTTP $code"
-          if [ "$code" != "200" ]; then
-            head -c 400 probe.json >&2
-            echo >&2
-            echo "the verification pipeline is not working end to end" >&2
-            exit 1
-          fi
+          # visitor as an opaque error. Costs one page of the free F0 quota per attempt.
+          # Retried, because a single provider-side blip (an F0 throttle, a cold model) is not a
+          # broken deployment and shouldn't be reported as one.
+          for i in 1 2 3; do
+            code=$(curl -s -o probe.json -w '%{http_code}' --max-time 90 -X POST "$base/api/verify" \
+              -F 'file=@docs/screenshot.png' -F 'fields=*' -F 'fieldChecks=[]')
+            echo "verify probe attempt $i: HTTP $code"
+            [ "$code" = "200" ] && break
+            if [ "$i" = 3 ]; then
+              head -c 400 probe.json >&2
+              echo >&2
+              echo "the verification pipeline is not working end to end" >&2
+              exit 1
+            fi
+            sleep 20
+          done

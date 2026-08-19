@@ -97,6 +97,40 @@ resource app 'Microsoft.Web/sites@2024-04-01' = {
   }
 }
 
+// App Service ships with application logging switched OFF, so an unhandled exception — the one
+// thing you actually need after a bad deploy — is never written anywhere. infra/README.md tells the
+// operator to diagnose 503s with `az webapp log tail`; without this block that command shows only
+// platform chatter and the stack trace is gone for good.
+// Caveat worth knowing: Azure resets fileSystem application logging to Off after 12 hours, so this
+// covers deploys and the hours after one, not indefinite retention. Wire up Application Insights if
+// you need logs that outlive that window.
+resource appLogs 'Microsoft.Web/sites/config@2024-04-01' = {
+  parent: app
+  name: 'logs'
+  properties: {
+    applicationLogs: {
+      fileSystem: {
+        level: 'Information'
+      }
+    }
+    httpLogs: {
+      fileSystem: {
+        enabled: true
+        retentionInMb: 35
+        retentionInDays: 7
+      }
+    }
+    // The API already returns RFC 7807 for every fault; platform error pages would only add a
+    // second, less useful shape (and leak detail the ProblemDetails deliberately withholds).
+    detailedErrorMessages: {
+      enabled: false
+    }
+    failedRequestsTracing: {
+      enabled: false
+    }
+  }
+}
+
 // The one grant that makes the keyless path work. Assigning a role needs Owner or User Access
 // Administrator on the resource group — an `az deployment` run by a plain Contributor fails here.
 resource documentIntelligenceAccess 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
