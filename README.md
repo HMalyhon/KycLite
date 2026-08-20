@@ -118,7 +118,7 @@ toolchain (scripts, config, and how the discovery-driven UI is wired).
 ## Tests
 
 ```bash
-cd backend && dotnet test    # xUnit: 105 unit + integration tests
+cd backend && dotnet test    # xUnit: 108 unit + integration tests
 cd frontend && npm run test  # Vitest: 32 unit tests
 ```
 
@@ -233,6 +233,9 @@ Every push to `main` that passes the quality gates is deployed to **Azure App Se
 
 `/api/verify` returns
 `{ status, documentType, extractedFields, ruleResults[], ignoredChecks[], ignoredFields[], extractorMode }`.
+Every submitted check comes back exactly once — in `ruleResults` or in `ignoredChecks` — carrying the
+`checkIndex` it had in the request, so a result can always be tied to the check that produced it.
+(`ruleKey` is a `"{field}:{rule}"` descriptor and two checks may share one, so it is not an identity.)
 `fieldChecks` is a JSON array, e.g. `[{"field":"documentNumber","rule":"pattern","param":"^[A-Z0-9]+$"}]`.
 Beyond `200`, it can return `400` (bad upload / malformed `fieldChecks`), `422` (the provider couldn't
 read the document), `429` (rate limit), `503` (the provider rejected this app's credentials — a

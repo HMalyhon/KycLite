@@ -192,6 +192,52 @@ public class FieldRuleTests
     }
 
     [Fact]
+    public void Run_MixOfEvaluatedAndIgnored_IndexesEachByItsPositionInTheRequest()
+    {
+        // Arrange — checks 0 and 2 evaluate, 1 and 3 are dropped for different reasons. The indices
+        // must survive the `continue`s, so a caller can tie every entry back to what it submitted.
+        var runner = BuildRunner();
+        var doc = Doc.With((FieldKeys.FirstName, "Erika"));
+        var checks = new[]
+        {
+            new FieldCheck(FieldKeys.FirstName, "required", null),      // 0 -> evaluated
+            new FieldCheck("not-a-real-field", "required", null),       // 1 -> ignored
+            new FieldCheck(FieldKeys.FirstName, "minLength", "2"),      // 2 -> evaluated
+            new FieldCheck(FieldKeys.FirstName, "pattern", "([bad"),    // 3 -> ignored
+        };
+
+        // Act
+        var run = runner.Run(checks, doc, Today);
+
+        // Assert — every submitted check is accounted for exactly once, under its own index.
+        Assert.Equal([0, 2], run.Evaluated.Select(r => r.CheckIndex));
+        Assert.Equal([1, 3], run.Ignored.Select(i => i.CheckIndex));
+    }
+
+    [Fact]
+    public void Run_TwoChecksSharingFieldAndRule_AreDistinguishedByIndex()
+    {
+        // Arrange — the case RuleKey cannot express: both results are "documentNumber:pattern".
+        var runner = BuildRunner();
+        var doc = Doc.With((FieldKeys.DocumentNumber, "L898902C"));
+        var checks = new[]
+        {
+            new FieldCheck(FieldKeys.DocumentNumber, "pattern", "^[A-Z0-9]+$"),
+            new FieldCheck(FieldKeys.DocumentNumber, "pattern", "^ZZZ$"),
+        };
+
+        // Act
+        var results = runner.Run(checks, doc, Today).Evaluated;
+
+        // Assert — identical keys, distinct identities, and each carries its own verdict.
+        Assert.Equal(2, results.Count);
+        Assert.All(results, r => Assert.Equal("documentNumber:pattern", r.RuleKey));
+        Assert.Equal([0, 1], results.Select(r => r.CheckIndex));
+        Assert.True(results[0].Passed);
+        Assert.False(results[1].Passed);
+    }
+
+    [Fact]
     public void Run_CheckWithUninterpretableParam_SkipsButRecordsAsIgnored()
     {
         // Arrange — the field and rule both resolve; only the param is nonsense. Previously each of

@@ -14,15 +14,19 @@ public sealed record FieldDescriptor(string Key, string Label, string Type);
 /// </summary>
 public sealed record ApiStatus(string ExtractorMode, string Version);
 
-/// <summary>Outcome of a single check.</summary>
-public sealed record RuleResult(string RuleKey, string RuleLabel, bool Passed, string Message);
+/// <summary>
+/// Outcome of a single check. <paramref name="CheckIndex"/> is the check's position in the
+/// submitted <c>fieldChecks</c> array — the only stable identity a result has, since
+/// <paramref name="RuleKey"/> is a "{field}:{rule}" descriptor that two checks can share.
+/// </summary>
+public sealed record RuleResult(int CheckIndex, string RuleKey, string RuleLabel, bool Passed, string Message);
 
 /// <summary>
 /// A check that could not be evaluated (unknown field/rule, a rule that doesn't apply to the
 /// field's type, or a param the rule can't interpret) and was therefore excluded from the verdict.
 /// Surfaced so the caller can tell a check was ignored rather than silently passed — or failed.
 /// </summary>
-public sealed record IgnoredCheck(string Field, string Rule, string Reason);
+public sealed record IgnoredCheck(int CheckIndex, string Field, string Rule, string Reason);
 
 /// <summary>The verdict returned to the web app.</summary>
 public sealed record VerifyResponse
@@ -35,7 +39,11 @@ public sealed record VerifyResponse
     public Dictionary<string, FieldValue> ExtractedFields { get; init; } = new();
     public List<RuleResult> RuleResults { get; init; } = new();
 
-    /// <summary>Checks that were dropped without evaluating (see <see cref="IgnoredCheck"/>); empty when all ran.</summary>
+    /// <summary>
+    /// Checks that were dropped without evaluating (see <see cref="IgnoredCheck"/>); empty when all
+    /// ran. Together with <see cref="RuleResults"/> this accounts for every submitted check exactly
+    /// once: each appears in one list or the other, addressable by its <c>CheckIndex</c>.
+    /// </summary>
     public List<IgnoredCheck> IgnoredChecks { get; init; } = new();
 
     /// <summary>

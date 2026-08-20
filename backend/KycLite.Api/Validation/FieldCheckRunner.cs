@@ -21,8 +21,15 @@ public sealed class FieldCheckRunner(IEnumerable<IFieldRule> rules)
         var evaluated = new List<RuleResult>();
         var ignored = new List<IgnoredCheck>();
 
+        // Position in the submitted array, incremented before every guard so it stays correct across
+        // the `continue`s below. This is what lets a caller tie each result — evaluated or ignored —
+        // back to the check it sent, which "{field}:{rule}" cannot: two checks may share one.
+        var index = -1;
+
         foreach (var check in checks)
         {
+            index++;
+
             // A check that can't produce a meaningful verdict — a null/incomplete entry, an unknown
             // field or rule, a (field, rule) pair the type matrix doesn't allow, or (further down)
             // a param the rule can't interpret — is excluded from the verdict, so a hand-crafted
@@ -32,19 +39,19 @@ public sealed class FieldCheckRunner(IEnumerable<IFieldRule> rules)
             // the guards below are deliberately defensive.
             if (check is null)
             {
-                ignored.Add(new IgnoredCheck(string.Empty, string.Empty, "Empty check."));
+                ignored.Add(new IgnoredCheck(index, string.Empty, string.Empty, "Empty check."));
                 continue;
             }
 
             if (string.IsNullOrWhiteSpace(check.Field) || !FieldCatalog.IsKnown(check.Field))
             {
-                ignored.Add(new IgnoredCheck(check.Field ?? string.Empty, check.Rule ?? string.Empty, "Unknown or missing field."));
+                ignored.Add(new IgnoredCheck(index, check.Field ?? string.Empty, check.Rule ?? string.Empty, "Unknown or missing field."));
                 continue;
             }
 
             if (string.IsNullOrWhiteSpace(check.Rule) || !_rulesByKey.TryGetValue(check.Rule, out var rule))
             {
-                ignored.Add(new IgnoredCheck(check.Field, check.Rule ?? string.Empty, "Unknown or missing rule."));
+                ignored.Add(new IgnoredCheck(index, check.Field, check.Rule ?? string.Empty, "Unknown or missing rule."));
                 continue;
             }
 
@@ -52,6 +59,7 @@ public sealed class FieldCheckRunner(IEnumerable<IFieldRule> rules)
             if (fieldType is null || !rule.AppliesTo.Contains(fieldType))
             {
                 ignored.Add(new IgnoredCheck(
+                    index,
                     check.Field,
                     check.Rule,
                     $"Rule '{rule.Key}' does not apply to {fieldType ?? "this"}-type fields."));
@@ -67,7 +75,7 @@ public sealed class FieldCheckRunner(IEnumerable<IFieldRule> rules)
             // not counted. Only the *value* being unreadable is a genuine failure.
             if (!outcome.Evaluated)
             {
-                ignored.Add(new IgnoredCheck(check.Field, check.Rule, outcome.Message));
+                ignored.Add(new IgnoredCheck(index, check.Field, check.Rule, outcome.Message));
                 continue;
             }
 
@@ -75,7 +83,7 @@ public sealed class FieldCheckRunner(IEnumerable<IFieldRule> rules)
                 ? $"{FieldCatalog.Label(check.Field)} · {rule.DisplayName}"
                 : check.Name;
 
-            evaluated.Add(new RuleResult($"{check.Field}:{rule.Key}", label, outcome.Passed, outcome.Message));
+            evaluated.Add(new RuleResult(index, $"{check.Field}:{rule.Key}", label, outcome.Passed, outcome.Message));
         }
 
         return new CheckRunOutcome(evaluated, ignored);

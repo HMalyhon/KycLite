@@ -39,6 +39,8 @@ export interface FieldValue {
 }
 
 export interface RuleResult {
+  /** Position of this check in the fieldChecks array that was submitted. Unique; ruleKey is not. */
+  checkIndex: number
   ruleKey: string
   ruleLabel: string
   passed: boolean
@@ -46,6 +48,8 @@ export interface RuleResult {
 }
 
 export interface IgnoredCheck {
+  /** Position of this check in the fieldChecks array that was submitted. */
+  checkIndex: number
   field: string
   rule: string
   reason: string

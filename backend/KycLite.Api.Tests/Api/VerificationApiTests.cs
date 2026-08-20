@@ -281,6 +281,30 @@ public class VerificationApiTests : IClassFixture<WebApplicationFactory<Program>
     }
 
     [Fact]
+    public async Task PostVerify_WithDuplicateFieldRulePair_DistinguishesResultsByCheckIndex()
+    {
+        // Arrange — two pattern checks on one field collide on "{field}:{rule}", so ruleKey alone
+        // cannot say which result belongs to which submitted check.
+        const string checks = """
+            [{"field":"documentNumber","rule":"pattern","param":"^[A-Z0-9]+$"},
+             {"field":"documentNumber","rule":"pattern","param":"^ZZZ$"}]
+            """;
+        using var content = BuildForm(fields: "documentNumber", fieldChecks: checks);
+
+        // Act
+        var response = await _client.PostAsync("/api/verify", content);
+        var dto = await response.Content.ReadFromJsonAsync<VerifyDto>(Json);
+
+        // Assert — same key, distinct index, and the verdicts land on the right ones.
+        response.EnsureSuccessStatusCode();
+        Assert.NotNull(dto);
+        Assert.All(dto.RuleResults, r => Assert.Equal("documentNumber:pattern", r.RuleKey));
+        Assert.Equal([0, 1], dto.RuleResults.Select(r => r.CheckIndex));
+        Assert.True(dto.RuleResults[0].Passed);
+        Assert.False(dto.RuleResults[1].Passed);
+    }
+
+    [Fact]
     public async Task PostVerify_WithUnknownRequestedField_SurfacesItAsIgnored()
     {
         // Arrange — a typo'd key in the csv `fields` selector must be reported, not silently
@@ -459,9 +483,9 @@ public class VerificationApiTests : IClassFixture<WebApplicationFactory<Program>
         List<IgnoredDto> IgnoredChecks,
         List<string> IgnoredFields);
 
-    private sealed record RuleDto(string RuleKey, bool Passed);
+    private sealed record RuleDto(int CheckIndex, string RuleKey, bool Passed);
 
-    private sealed record IgnoredDto(string Field, string Rule, string Reason);
+    private sealed record IgnoredDto(int CheckIndex, string Field, string Rule, string Reason);
 
     /// <summary>Extractor that always throws, to exercise the global exception handler.</summary>
     private sealed class ThrowingExtractor : IDocumentExtractor

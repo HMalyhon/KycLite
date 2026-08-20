@@ -54,8 +54,7 @@ function humanize(key: string) {
 
       <h3>Rule results</h3>
       <ul class="rules">
-        <!-- ruleKey isn't unique (two checks can share field:rule), so key by position. -->
-        <li v-for="(r, i) in result.ruleResults" :key="i">
+        <li v-for="r in result.ruleResults" :key="r.checkIndex">
           <i :class="r.passed ? 'pi pi-check-circle pass' : 'pi pi-times-circle fail'" />
           <span
             ><strong>{{ r.ruleLabel }}</strong> — {{ r.message }}</span
@@ -71,7 +70,7 @@ function humanize(key: string) {
           <strong>{{ result.ignoredChecks.length }} check(s) were ignored</strong> and did not
           affect the verdict:
           <ul>
-            <li v-for="(c, i) in result.ignoredChecks" :key="i">
+            <li v-for="c in result.ignoredChecks" :key="c.checkIndex">
               <code>{{ c.field }} · {{ c.rule }}</code> — {{ c.reason }}
             </li>
           </ul>
