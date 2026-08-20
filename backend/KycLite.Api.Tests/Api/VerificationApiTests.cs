@@ -281,6 +281,24 @@ public class VerificationApiTests : IClassFixture<WebApplicationFactory<Program>
     }
 
     [Fact]
+    public async Task PostVerify_WithUnknownRequestedField_SurfacesItAsIgnored()
+    {
+        // Arrange — a typo'd key in the csv `fields` selector must be reported, not silently
+        // filtered out, for the same reason a typo'd check is.
+        using var content = BuildForm(fields: "firstName,notARealField");
+
+        // Act
+        var response = await _client.PostAsync("/api/verify", content);
+        var dto = await response.Content.ReadFromJsonAsync<VerifyDto>(Json);
+
+        // Assert
+        response.EnsureSuccessStatusCode();
+        Assert.NotNull(dto);
+        Assert.True(dto.ExtractedFields.ContainsKey("firstName"));
+        Assert.Equal("notARealField", Assert.Single(dto.IgnoredFields));
+    }
+
+    [Fact]
     public async Task PostVerify_WithUninterpretableCheckParam_SurfacesIgnoredWithoutRejecting()
     {
         // Arrange — every field and rule resolves; only the params are nonsense. This used to come
@@ -438,7 +456,8 @@ public class VerificationApiTests : IClassFixture<WebApplicationFactory<Program>
         string ExtractorMode,
         Dictionary<string, JsonElement> ExtractedFields,
         List<RuleDto> RuleResults,
-        List<IgnoredDto> IgnoredChecks);
+        List<IgnoredDto> IgnoredChecks,
+        List<string> IgnoredFields);
 
     private sealed record RuleDto(string RuleKey, bool Passed);
 

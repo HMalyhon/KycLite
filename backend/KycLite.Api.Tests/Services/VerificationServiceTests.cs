@@ -121,6 +121,51 @@ public class VerificationServiceTests
     }
 
     [Fact]
+    public async Task VerifyAsync_UnknownRequestedField_ReportsItAsIgnored()
+    {
+        // Arrange — a typo in the field selector used to vanish silently, leaving the caller unable
+        // to tell "no such field" from "the document didn't carry one".
+        var svc = BuildService(Doc.Valid());
+
+        // Act
+        var response = await Verify(svc, [FieldKeys.FirstName, "notARealField"]);
+
+        // Assert
+        Assert.Equal([FieldKeys.FirstName], response.ExtractedFields.Keys);
+        Assert.Equal("notARealField", Assert.Single(response.IgnoredFields));
+    }
+
+    [Fact]
+    public async Task VerifyAsync_KnownFieldTheDocumentLacks_IsAbsentButNotIgnored()
+    {
+        // Arrange — Doc.Valid() carries no address. "address" is a real catalog field, so it is
+        // simply missing from the projection; calling it ignored would cry wolf on every document
+        // that legitimately lacks one.
+        var svc = BuildService(Doc.Valid());
+
+        // Act
+        var response = await Verify(svc, [FieldKeys.FirstName, FieldKeys.Address]);
+
+        // Assert
+        Assert.Equal([FieldKeys.FirstName], response.ExtractedFields.Keys);
+        Assert.Empty(response.IgnoredFields);
+    }
+
+    [Fact]
+    public async Task VerifyAsync_WildcardSelection_ReportsNothingAsIgnored()
+    {
+        // Arrange — "*" is satisfied in full, so any entries beside it are redundant, not dropped.
+        var svc = BuildService(Doc.Valid());
+
+        // Act
+        var response = await Verify(svc, ["*", "notARealField"]);
+
+        // Assert
+        Assert.Equal(6, response.ExtractedFields.Count);
+        Assert.Empty(response.IgnoredFields);
+    }
+
+    [Fact]
     public async Task VerifyAsync_MockExtractor_PropagatesExtractorMode()
     {
         // Arrange

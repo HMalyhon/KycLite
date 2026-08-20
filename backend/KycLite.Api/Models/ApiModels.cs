@@ -18,9 +18,9 @@ public sealed record ApiStatus(string ExtractorMode, string Version);
 public sealed record RuleResult(string RuleKey, string RuleLabel, bool Passed, string Message);
 
 /// <summary>
-/// A check that could not be evaluated (unknown field/rule, or a rule that doesn't apply to the
-/// field's type) and was therefore excluded from the verdict. Surfaced so the caller can tell a
-/// check was ignored rather than silently passed.
+/// A check that could not be evaluated (unknown field/rule, a rule that doesn't apply to the
+/// field's type, or a param the rule can't interpret) and was therefore excluded from the verdict.
+/// Surfaced so the caller can tell a check was ignored rather than silently passed — or failed.
 /// </summary>
 public sealed record IgnoredCheck(string Field, string Rule, string Reason);
 
@@ -37,6 +37,13 @@ public sealed record VerifyResponse
 
     /// <summary>Checks that were dropped without evaluating (see <see cref="IgnoredCheck"/>); empty when all ran.</summary>
     public List<IgnoredCheck> IgnoredChecks { get; init; } = new();
+
+    /// <summary>
+    /// Requested field keys the catalog doesn't define, so nothing could be returned for them.
+    /// A known field the document simply didn't carry is absent from <see cref="ExtractedFields"/>
+    /// but not listed here — this is for typos, not for missing data.
+    /// </summary>
+    public List<string> IgnoredFields { get; init; } = new();
 
     /// <summary>"azure" or "mock" — surfaced for transparency in the demo.</summary>
     public required string ExtractorMode { get; init; }

@@ -1,3 +1,4 @@
+using KycLite.Api.Catalog;
 using KycLite.Api.Extraction;
 using KycLite.Api.Models;
 using KycLite.Api.Validation;
@@ -28,29 +29,51 @@ public sealed class VerificationService(
         var ruleResults = run.Evaluated.ToList();
         var approved = ruleResults.All(r => r.Passed); // nothing selected => vacuously approved
 
+        var projection = ProjectFields(extraction.Fields, selectedFields);
+
         return new VerifyResponse
         {
             Status = approved ? "Approve" : "Reject",
             DocumentType = extraction.DocumentType,
-            ExtractedFields = ProjectFields(extraction.Fields, selectedFields),
+            ExtractedFields = projection.Fields,
             RuleResults = ruleResults,
             IgnoredChecks = run.Ignored.ToList(),
+            IgnoredFields = projection.Ignored,
             ExtractorMode = extractor.Mode,
         };
     }
 
-    private static Dictionary<string, FieldValue> ProjectFields(
+    /// <summary>
+    /// Narrows the extraction to the caller's selection, and reports back any requested key the
+    /// field catalog doesn't know. Filtering alone would make a typo indistinguishable from a field
+    /// the document simply didn't carry — the same silent drop <c>ignoredChecks</c> exists to
+    /// prevent, applied to the other half of the request.
+    /// </summary>
+    private static (Dictionary<string, FieldValue> Fields, List<string> Ignored) ProjectFields(
         Dictionary<string, FieldValue> all,
         IEnumerable<string> selected)
     {
-        var wanted = selected.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var requested = selected.ToArray();
+        var wanted = requested.ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        // Empty selection or "*" => return everything.
+        // Empty selection or "*" => return everything. Any other entries alongside the wildcard are
+        // redundant rather than ignored — the caller asked for all fields and got them — so there is
+        // nothing to report here.
         if (wanted.Count == 0 || wanted.Contains(Wildcard))
-            return all;
+            return (all, []);
 
-        return all
+        // Only keys the catalog doesn't define count as ignored. A *known* field the extractor
+        // didn't populate is absent, not dropped, and saying otherwise would cry wolf on every
+        // document that legitimately lacks an address or a nationality.
+        var ignored = requested
+            .Where(key => !FieldCatalog.IsKnown(key))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var fields = all
             .Where(kv => wanted.Contains(kv.Key))
             .ToDictionary(kv => kv.Key, kv => kv.Value);
+
+        return (fields, ignored);
     }
 }

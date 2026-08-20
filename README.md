@@ -46,6 +46,8 @@ Browser (Vue 3) ──HTTP──► ASP.NET Core API ──► IDocumentExtracto
   (`DefaultAzureCredential`), which is how the deployed app runs: no secret at all.
 - **Stateless & data-minimizing.** Nothing is persisted. The response returns only the fields the
   user asked for (validation still runs against the full extraction), which keeps PII exposure low.
+  A requested key the catalog doesn't define comes back under `ignoredFields`, so a typo is never
+  mistaken for a field the document happened not to carry.
 - **Defensive by default.** Uploads are checked by magic-byte signature (not just the spoofable
   `Content-Type`); the verify endpoint is rate-limited per client IP; regex checks are ReDoS-guarded;
   and all faults return RFC 7807 `ProblemDetails` with no stack traces.
@@ -116,7 +118,7 @@ toolchain (scripts, config, and how the discovery-driven UI is wired).
 ## Tests
 
 ```bash
-cd backend && dotnet test    # xUnit: 101 unit + integration tests
+cd backend && dotnet test    # xUnit: 105 unit + integration tests
 cd frontend && npm run test  # Vitest: 32 unit tests
 ```
 
@@ -230,7 +232,7 @@ Every push to `main` that passes the quality gates is deployed to **Azure App Se
 | GET    | `/health`             | Liveness probe.                                                         |
 
 `/api/verify` returns
-`{ status, documentType, extractedFields, ruleResults[], ignoredChecks[], extractorMode }`.
+`{ status, documentType, extractedFields, ruleResults[], ignoredChecks[], ignoredFields[], extractorMode }`.
 `fieldChecks` is a JSON array, e.g. `[{"field":"documentNumber","rule":"pattern","param":"^[A-Z0-9]+$"}]`.
 Beyond `200`, it can return `400` (bad upload / malformed `fieldChecks`), `422` (the provider couldn't
 read the document), `429` (rate limit), `503` (the provider rejected this app's credentials — a

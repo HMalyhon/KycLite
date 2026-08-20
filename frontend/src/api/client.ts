@@ -56,8 +56,12 @@ export interface VerifyResponse {
   documentType: string | null
   extractedFields: Record<string, FieldValue>
   ruleResults: RuleResult[]
-  // Checks the backend dropped without evaluating (unknown field/rule, or type mismatch).
+  // Checks the backend dropped without evaluating (unknown field/rule, type mismatch, or a param
+  // the rule couldn't interpret).
   ignoredChecks: IgnoredCheck[]
+  // Requested field keys that don't exist in the catalog. A known field the document didn't carry
+  // is simply absent from extractedFields — it is not listed here.
+  ignoredFields: string[]
   extractorMode: string
 }
 

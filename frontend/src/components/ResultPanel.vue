@@ -11,6 +11,12 @@ const props = defineProps<{ result: VerifyResponse }>()
 
 const approved = computed(() => props.result.status === 'Approve')
 
+// One warning panel covers every kind of input the backend couldn't act on, so a typo in the
+// field selector is as visible as a malformed check rather than vanishing from the response.
+const ignoredInputCount = computed(
+  () => props.result.ignoredChecks.length + props.result.ignoredFields.length,
+)
+
 const fieldRows = computed(() =>
   Object.entries(props.result.extractedFields).map(([key, fv]) => ({
     key,
@@ -60,19 +66,25 @@ function humanize(key: string) {
         </li>
       </ul>
 
-      <Message
-        v-if="result.ignoredChecks.length > 0"
-        severity="warn"
-        :closable="false"
-        class="ignored"
-      >
-        <strong>{{ result.ignoredChecks.length }} check(s) were ignored</strong> and did not affect
-        the verdict:
-        <ul>
-          <li v-for="(c, i) in result.ignoredChecks" :key="i">
-            <code>{{ c.field }} · {{ c.rule }}</code> — {{ c.reason }}
-          </li>
-        </ul>
+      <Message v-if="ignoredInputCount > 0" severity="warn" :closable="false" class="ignored">
+        <template v-if="result.ignoredChecks.length > 0">
+          <strong>{{ result.ignoredChecks.length }} check(s) were ignored</strong> and did not
+          affect the verdict:
+          <ul>
+            <li v-for="(c, i) in result.ignoredChecks" :key="i">
+              <code>{{ c.field }} · {{ c.rule }}</code> — {{ c.reason }}
+            </li>
+          </ul>
+        </template>
+        <template v-if="result.ignoredFields.length > 0">
+          <strong>{{ result.ignoredFields.length }} requested field(s) don't exist</strong> and
+          could not be returned:
+          <ul>
+            <li v-for="f in result.ignoredFields" :key="f">
+              <code>{{ f }}</code>
+            </li>
+          </ul>
+        </template>
       </Message>
 
       <h3>Extracted fields</h3>
