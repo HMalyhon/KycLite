@@ -48,9 +48,10 @@ Browser (Vue 3) ──HTTP──► ASP.NET Core API ──► IDocumentExtracto
   user asked for (validation still runs against the full extraction), which keeps PII exposure low.
   A requested key the catalog doesn't define comes back under `ignoredFields`, so a typo is never
   mistaken for a field the document happened not to carry.
-- **Defensive by default.** Uploads are checked by magic-byte signature (not just the spoofable
-  `Content-Type`); the verify endpoint is rate-limited per client IP; regex checks are ReDoS-guarded;
-  and all faults return RFC 7807 `ProblemDetails` with no stack traces.
+- **Defensive by default.** Uploads are identified by magic-byte signature and the declared
+  `Content-Type` must *agree* with what the bytes actually are — either check alone lets PDF bytes
+  through as `image/jpeg`. The verify endpoint is rate-limited per client IP; regex checks are
+  ReDoS-guarded; and all faults return RFC 7807 `ProblemDetails` with no stack traces.
 
 ## Project layout
 
@@ -62,7 +63,7 @@ backend/KycLite.Api/           ASP.NET Core (.NET 10) Web API (controllers)
   Controllers/            CatalogController (catalogs), StatusController (extractor mode), VerificationController (verify)
   Services/               IVerificationService — orchestrates extract → validate → project
   Extraction/             IDocumentExtractor + Azure & Mock implementations, options, exceptions
-  Validation/             IFieldRule + FieldCheckRunner, FileSignatures, MRZ check digits (Mrz731 + Mrz)
+  Validation/             IFieldRule + FieldCheckRunner, FileSignatures (format detection), MRZ check digits (Mrz731 + Mrz)
     FieldRules/           the six field-rules + DateParsing
   Infrastructure/         GlobalExceptionHandler (RFC 7807 ProblemDetails)
   Catalog/                discoverable field, field-rule & default-check definitions
@@ -118,7 +119,7 @@ toolchain (scripts, config, and how the discovery-driven UI is wired).
 ## Tests
 
 ```bash
-cd backend && dotnet test    # xUnit: 108 unit + integration tests
+cd backend && dotnet test    # xUnit: 109 unit + integration tests
 cd frontend && npm run test  # Vitest: 32 unit tests
 ```
 

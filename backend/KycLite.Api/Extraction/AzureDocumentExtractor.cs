@@ -54,7 +54,7 @@ public sealed class AzureDocumentExtractor(IOptions<DocumentIntelligenceOptions>
 
     public string Mode => ModeName;
 
-    public async Task<ExtractionResult> ExtractAsync(Stream image, string contentType, CancellationToken ct)
+    public async Task<ExtractionResult> ExtractAsync(Stream image, CancellationToken ct)
     {
         var bytes = await BinaryData.FromStreamAsync(image, ct);
 

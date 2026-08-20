@@ -10,7 +10,6 @@ public interface IVerificationService
 {
     Task<VerifyResponse> VerifyAsync(
         Stream image,
-        string contentType,
         IEnumerable<string> selectedFields,
         IEnumerable<FieldCheck> fieldChecks,
         CancellationToken ct);

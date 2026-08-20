@@ -28,7 +28,7 @@ public class VerificationServiceTests
         VerificationService svc,
         IEnumerable<string> fields,
         IEnumerable<FieldCheck>? checks = null)
-        => svc.VerifyAsync(Stream.Null, "image/png", fields, checks ?? NoChecks, CancellationToken.None);
+        => svc.VerifyAsync(Stream.Null, fields, checks ?? NoChecks, CancellationToken.None);
 
     [Fact]
     public async Task VerifyAsync_ValidDocumentWithPassingChecks_Approves()

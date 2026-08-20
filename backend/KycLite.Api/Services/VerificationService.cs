@@ -15,14 +15,13 @@ public sealed class VerificationService(
 
     public async Task<VerifyResponse> VerifyAsync(
         Stream image,
-        string contentType,
         IEnumerable<string> selectedFields,
         IEnumerable<FieldCheck> fieldChecks,
         CancellationToken ct)
     {
         // Extraction always pulls every field; the response is projected afterwards, while
         // checks always evaluate against the full extraction.
-        var extraction = await extractor.ExtractAsync(image, contentType, ct);
+        var extraction = await extractor.ExtractAsync(image, ct);
 
         var today = DateOnly.FromDateTime(clock.GetUtcNow().UtcDateTime);
         var run = checkRunner.Run(fieldChecks, extraction, today);

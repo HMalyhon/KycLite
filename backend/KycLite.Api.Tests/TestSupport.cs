@@ -31,7 +31,7 @@ internal sealed class FakeDocumentExtractor(ExtractionResult result, string mode
 {
     public string Mode { get; } = mode;
 
-    public Task<ExtractionResult> ExtractAsync(Stream image, string contentType, CancellationToken ct)
+    public Task<ExtractionResult> ExtractAsync(Stream image, CancellationToken ct)
         => Task.FromResult(result);
 }
 

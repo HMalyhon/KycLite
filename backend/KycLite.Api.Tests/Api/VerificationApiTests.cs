@@ -454,6 +454,29 @@ public class VerificationApiTests : IClassFixture<WebApplicationFactory<Program>
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
+    [Fact]
+    public async Task PostVerify_WhenContentIsASupportedFormatButNotTheDeclaredOne_Returns400()
+    {
+        // Arrange — PDF bytes declared as image/jpeg. Both gates pass in isolation: jpeg is on the
+        // allowlist and %PDF is a format the signature table knows. Only comparing them catches it.
+        var fileContent = new ByteArrayContent("%PDF-1.4 not a jpeg"u8.ToArray());
+        fileContent.Headers.ContentType = new MediaTypeHeaderValue("image/jpeg");
+        using var content = new MultipartFormDataContent
+        {
+            { fileContent, "file", "id.jpg" },
+            { new StringContent("*"), "fields" },
+        };
+
+        // Act
+        var response = await _client.PostAsync("/api/verify", content);
+        var problem = await response.Content.ReadAsStringAsync();
+
+        // Assert — and the message names both sides, so the caller can see what it actually sent.
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains("image/jpeg", problem, StringComparison.Ordinal);
+        Assert.Contains("PDF", problem, StringComparison.Ordinal);
+    }
+
     private static MultipartFormDataContent BuildForm(
         string fields,
         string? fieldChecks = null,
@@ -492,7 +515,7 @@ public class VerificationApiTests : IClassFixture<WebApplicationFactory<Program>
     {
         public string Mode => "throwing";
 
-        public Task<ExtractionResult> ExtractAsync(Stream image, string contentType, CancellationToken ct)
+        public Task<ExtractionResult> ExtractAsync(Stream image, CancellationToken ct)
             => throw new InvalidOperationException("boom");
     }
 
@@ -501,7 +524,7 @@ public class VerificationApiTests : IClassFixture<WebApplicationFactory<Program>
     {
         public string Mode => "azure";
 
-        public Task<ExtractionResult> ExtractAsync(Stream image, string contentType, CancellationToken ct)
+        public Task<ExtractionResult> ExtractAsync(Stream image, CancellationToken ct)
             => throw new ProviderAuthenticationException("nope");
     }
 }

@@ -13,7 +13,7 @@ public sealed class MockDocumentExtractor(TimeProvider clock) : IDocumentExtract
 {
     public string Mode => "mock";
 
-    public Task<ExtractionResult> ExtractAsync(Stream image, string contentType, CancellationToken ct)
+    public Task<ExtractionResult> ExtractAsync(Stream image, CancellationToken ct)
     {
         var today = DateOnly.FromDateTime(clock.GetUtcNow().UtcDateTime);
         var dateOfBirth = new DateOnly(1990, 1, 15);
