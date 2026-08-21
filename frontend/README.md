@@ -73,7 +73,7 @@ src/
   composables/
     useVerification.ts        # all screen state + orchestration
   components/
-    UploadCard.vue            # file picker / drop zone
+    UploadCard.vue            # file picker / drop zone (+ local size & type guard)
     FieldSelector.vue         # which fields to return
     FieldRuleBuilder.vue      # compose checks: field x rule (+ param)
     ResultPanel.vue           # verdict, extracted fields, per-rule results
