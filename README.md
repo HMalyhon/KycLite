@@ -52,6 +52,10 @@ Browser (Vue 3) ──HTTP──► ASP.NET Core API ──► IDocumentExtracto
   `Content-Type` must *agree* with what the bytes actually are — either check alone lets PDF bytes
   through as `image/jpeg`. The verify endpoint is rate-limited per client IP; regex checks are
   ReDoS-guarded; and all faults return RFC 7807 `ProblemDetails` with no stack traces.
+  **Cross-origin access is off** unless you configure it: the app serves its own SPA, so nothing
+  needs CORS by default, and an allow-any policy would let any third-party page spend this demo's
+  billed OCR quota through its visitors' browsers — which per-client-IP rate limiting can't stop,
+  since the IPs are theirs.
 
 ## Project layout
 
@@ -119,7 +123,7 @@ toolchain (scripts, config, and how the discovery-driven UI is wired).
 ## Tests
 
 ```bash
-cd backend && dotnet test    # xUnit: 109 unit + integration tests
+cd backend && dotnet test    # xUnit: 112 unit + integration tests
 cd frontend && npm run test  # Vitest: 32 unit tests
 ```
 
@@ -197,6 +201,10 @@ Every push to `main` that passes the quality gates is deployed to **Azure App Se
   calls) from the same origin — one free-tier (F1) resource, one URL, no CORS to configure.
   `Program.cs` only wires up static-file + SPA-fallback serving when a `wwwroot/index.html` is
   present, so local development (Vite dev server + proxy) is untouched.
+- **Same-origin by default; CORS is opt-in.** Because the API serves the SPA, no cross-origin
+  configuration is needed or enabled. To host the frontend elsewhere, set the API's allowed origins
+  (`Cors__AllowedOrigins__0=https://your-frontend`, repeat the index for more) alongside the
+  frontend's `VITE_API_BASE`. The startup log states which mode is active.
 - **OIDC, no stored secret.** GitHub Actions authenticates to Azure with a **federated identity**
   (`azure/login` via `id-token`), so there's no publish profile or client secret in the repo — the
   three `AZURE_*` values are non-sensitive identifiers.

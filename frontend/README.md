@@ -61,6 +61,10 @@ override:
 | `VITE_API_TARGET` | `http://localhost:5000` | Backend the **dev proxy** forwards `/api` to |
 | `VITE_API_BASE` | *(empty)* | Absolute API base for the **client**. Leave empty to use the dev proxy; set it when the frontend is hosted separately from the API |
 
+Hosting the frontend separately makes every API call cross-origin, and the backend refuses those by
+default. Add your origin to the API's allowlist too (`Cors__AllowedOrigins__0=https://your-frontend`)
+or the browser will block the responses.
+
 ## Project structure
 
 ```

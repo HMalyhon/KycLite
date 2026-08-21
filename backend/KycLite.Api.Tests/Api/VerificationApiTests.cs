@@ -146,6 +146,56 @@ public class VerificationApiTests : IClassFixture<WebApplicationFactory<Program>
     }
 
     [Fact]
+    public async Task GetFields_FromAnotherOriginWithNoCorsConfigured_IsNotAllowed()
+    {
+        // Arrange — the shipped default. The deployed app serves the SPA from its own origin, so
+        // cross-origin access is off: an allow-any policy would let any third-party page spend this
+        // demo's billed OCR quota through its visitors' browsers, and per-client-IP rate limiting
+        // cannot stop that, because the IPs are the visitors'.
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/fields");
+        request.Headers.Add("Origin", "https://not-our-frontend.example");
+
+        // Act
+        var response = await _client.SendAsync(request);
+
+        // Assert — the request still succeeds; the browser is simply not told it may read it.
+        response.EnsureSuccessStatusCode();
+        Assert.False(response.Headers.Contains("Access-Control-Allow-Origin"));
+    }
+
+    [Fact]
+    public async Task GetFields_FromAConfiguredOrigin_IsAllowed()
+    {
+        // Arrange — the escape hatch for hosting the frontend separately.
+        var client = BuildClientAllowingOrigin("https://frontend.example");
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/fields");
+        request.Headers.Add("Origin", "https://frontend.example");
+
+        // Act
+        var response = await client.SendAsync(request);
+
+        // Assert
+        Assert.Equal(
+            "https://frontend.example",
+            Assert.Single(response.Headers.GetValues("Access-Control-Allow-Origin")));
+    }
+
+    [Fact]
+    public async Task GetFields_FromAnOriginOutsideTheAllowlist_IsNotAllowed()
+    {
+        // Arrange — configuring one origin must not re-open the door to every other one.
+        var client = BuildClientAllowingOrigin("https://frontend.example");
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/fields");
+        request.Headers.Add("Origin", "https://attacker.example");
+
+        // Act
+        var response = await client.SendAsync(request);
+
+        // Assert
+        Assert.False(response.Headers.Contains("Access-Control-Allow-Origin"));
+    }
+
+    [Fact]
     public async Task GetUnknownApiRoute_ReturnsProblemDetails404()
     {
         // Act — a path under /api that no controller serves.
@@ -497,6 +547,20 @@ public class VerificationApiTests : IClassFixture<WebApplicationFactory<Program>
             content.Add(new StringContent(fieldChecks), "fieldChecks");
         return content;
     }
+
+    /// <summary>
+    /// An app instance configured to accept cross-origin requests from one origin.
+    /// <para>
+    /// Must be <c>UseSetting</c>, not <c>ConfigureAppConfiguration</c>: Program.cs reads the origins
+    /// off <c>builder.Configuration</c> before <c>Build()</c>, and configuration callbacks are only
+    /// applied at build time — so they land too late and the policy comes out empty, with the test
+    /// failing for a reason that looks nothing like the cause.
+    /// </para>
+    /// </summary>
+    private HttpClient BuildClientAllowingOrigin(string origin) =>
+        _factory
+            .WithWebHostBuilder(b => b.UseSetting("Cors:AllowedOrigins:0", origin))
+            .CreateClient();
 
     private sealed record VerifyDto(
         string Status,

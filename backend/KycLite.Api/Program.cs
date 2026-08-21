@@ -17,14 +17,23 @@ Env.TraversePath().NoClobber().Load();
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Cross-origin access is opt-in, and off by default. The deployed app serves the SPA from its own
+// origin and local development goes through the Vite proxy, so nothing here needs CORS — while the
+// verify endpoint costs a billed OCR call, and an allow-any policy lets any third-party page spend
+// this demo's quota through its visitors' browsers. Per-client-IP rate limiting is no defence
+// there, because the IPs belong to those visitors. Set Cors__AllowedOrigins__0=https://… (repeat
+// for more) only when the frontend is genuinely hosted somewhere else.
 const string CorsPolicy = "frontend";
-builder.Services.AddCors(options =>
-    options.AddPolicy(CorsPolicy, p => p
-        .AllowAnyHeader()
-        .AllowAnyMethod()
-        // Open demo with no auth/credentials: every origin is allowed by design so the app
-        // works from any dev port or a hosted frontend. Tighten this if auth is ever added.
-        .SetIsOriginAllowed(_ => true)));
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+
+if (allowedOrigins.Length > 0)
+{
+    builder.Services.AddCors(options =>
+        options.AddPolicy(CorsPolicy, p => p
+            .WithOrigins(allowedOrigins)
+            .AllowAnyHeader()
+            .AllowAnyMethod()));
+}
 
 builder.Services.AddControllers();
 
@@ -149,7 +158,11 @@ app.UseExceptionHandler();
 app.UseSwagger();
 app.UseSwaggerUI();
 
-app.UseCors(CorsPolicy);
+// Registered only when origins are configured: with none, the middleware would have no policy to
+// apply and every response is same-origin anyway.
+if (allowedOrigins.Length > 0)
+    app.UseCors(CorsPolicy);
+
 app.UseRateLimiter();
 app.MapControllers();
 app.MapHealthChecks("/health");
@@ -193,7 +206,15 @@ var extractorAuth = diOptions switch
     _ => "account key",
 };
 
-app.Logger.LogInformation("Document extractor active: {Mode} ({Auth})", extractorMode, extractorAuth);
+// Folded into one statement rather than adding a third log call (see the CA1848 note in
+// .editorconfig): a silently-off CORS policy is a classic thing to lose an afternoon to.
+var corsState = allowedOrigins.Length == 0 ? "same-origin only" : string.Join(", ", allowedOrigins);
+
+app.Logger.LogInformation(
+    "Document extractor active: {Mode} ({Auth}); cross-origin access: {Cors}",
+    extractorMode,
+    extractorAuth,
+    corsState);
 
 await app.RunAsync();
 
