@@ -78,7 +78,8 @@ frontend/                 Vue 3 + Vite + TypeScript + PrimeVue (Aura theme) — 
   src/api/client.ts       typed API client (the only thing that talks to the backend)
   src/components/         UploadCard, FieldSelector, FieldRuleBuilder, ResultPanel
   src/composables/        useVerification — all screen state & orchestration
-  src/lib/                dateParam — relative date-param hints (+ its unit tests)
+  src/lib/                dateParam — relative date-param hints
+  src/test/               Vitest setup (jsdom stubs) + mount/composable helpers
   eslint.config.ts        ESLint flat config (eslint-plugin-vue lints inside SFC templates)
   .prettierrc.json        formatting; ESLint defers to it (no rule fights)
   .env.example            copy to .env to override the dev proxy target
@@ -124,7 +125,7 @@ toolchain (scripts, config, and how the discovery-driven UI is wired).
 
 ```bash
 cd backend && dotnet test    # xUnit: 112 unit + integration tests
-cd frontend && npm run test  # Vitest: 32 unit tests
+cd frontend && npm run test  # Vitest: 76 unit + component tests
 ```
 
 The backend suite (`backend/KycLite.Api.Tests/`) covers:
@@ -148,8 +149,21 @@ The backend suite (`backend/KycLite.Api.Tests/`) covers:
 
 Tests follow the **Arrange-Act-Assert** convention.
 
-The frontend suite (Vitest) covers `dateParam` — parsing and validating the relative date params
-(`today`, `today-18y`) that the date rules accept, including malformed and out-of-range offsets.
+The frontend suite (Vitest + Vue Test Utils, jsdom) mirrors that shape rather than testing one
+pure function:
+
+- **`useVerification`** — the catalog load seeding the builder, a failed `/api/status` leaving the
+  page usable, the `fieldChecks` payload (half-filled rows dropped, params nulled for rules that
+  take none), the submit guards, and the screen-reader `liveStatus` wording. Asserted against what
+  reaches the API client, not against internal refs.
+- **`FieldRuleBuilder`** — the type matrix offering only applicable rules, a rule being cleared when
+  the field type changes under it, and validate-on-blur for date params.
+- **`ResultPanel`** — verdicts, per-rule reasons, two checks sharing a `ruleKey` rendering
+  separately, and the ignored-checks/ignored-fields warning.
+- **`UploadCard`** — the local size and format guard on the drag-and-drop path, which the input's
+  `accept` attribute cannot police.
+- **`dateParam`** — the relative date params (`today`, `today-18y`), including malformed and
+  out-of-range offsets.
 
 ## Quality gate
 

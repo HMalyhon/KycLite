@@ -38,7 +38,7 @@ no CORS surprises.
 | `npm run dev` | Start the Vite dev server with the `/api` proxy |
 | `npm run build` | Type-check (`vue-tsc`) then build to `dist/` |
 | `npm run preview` | Serve the production build locally |
-| `npm run test` | Run the unit tests once (Vitest) |
+| `npm run test` | Run the tests once (Vitest + Vue Test Utils, jsdom) |
 | `npm run test:watch` | Run the unit tests in watch mode |
 | `npm run lint` | ESLint with `--max-warnings 0` (build-breaking gate) |
 | `npm run lint:fix` | ESLint with auto-fix |
@@ -78,6 +78,7 @@ src/
     FieldRuleBuilder.vue      # compose checks: field x rule (+ param)
     ResultPanel.vue           # verdict, extracted fields, per-rule results
   lib/dateParam.ts            # advisory hints for relative date params (today, today-18y)
+  test/                       # setup.ts (jsdom stubs) + helpers.ts (mount/composable helpers)
   App.vue                     # thin view that composes the components
   main.ts                     # bootstrap: PrimeVue + Aura theme, OS dark-mode sync
   style.css                   # global styles

@@ -1,4 +1,5 @@
-import { defineConfig, loadEnv } from 'vite'
+import { loadEnv } from 'vite'
+import { defineConfig } from 'vitest/config'
 import vue from '@vitejs/plugin-vue'
 
 // https://vite.dev/config/
@@ -16,6 +17,13 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
         },
       },
+    },
+    test: {
+      // Component and composable tests mount real Vue components, so they need a DOM. The
+      // dateParam tests are environment-agnostic and are unaffected.
+      environment: 'jsdom',
+      // jsdom implements neither of these, and UploadCard uses both for its image preview.
+      setupFiles: ['./src/test/setup.ts'],
     },
   }
 })
