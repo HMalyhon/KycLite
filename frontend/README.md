@@ -88,7 +88,7 @@ src/
 
 **The UI is discovery-driven.** On mount the app loads three catalogs from the backend:
 
-- `GET /api/fields` — the fields you can request, each tagged with a type (`text` / `date`)
+- `GET /api/fields` — the fields you can request, each tagged with a type (`text` / `date` / `mrz`)
 - `GET /api/field-rules` — the available rules and which field types each applies to (the matrix)
 - `GET /api/default-checks` — the check set the UI seeds with
 

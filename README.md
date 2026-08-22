@@ -4,7 +4,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 **[Live demo →](https://kyclite.azurewebsites.net)** (the page states which extraction engine it
-is running; the first request may take ~30 s while the free-tier instance wakes up)
+is running; the first request can take up to a minute while the free-tier instance wakes up)
 
 A small full-stack demo that verifies an ID card or passport. A user uploads a document image,
 **chooses which fields to get back and which validation rules to apply**, and receives an
@@ -14,12 +14,12 @@ A small full-stack demo that verifies an ID card or passport. A user uploads a d
 
 The cloud OCR provider (Azure AI Document Intelligence) is **fully hidden behind a backend
 interface** — the web app talks only to this API and never knows a provider exists. When no
-Azure credentials are configured, the backend transparently falls back to an offline mock, so
+Azure endpoint is configured, the backend transparently falls back to an offline mock, so
 the whole thing runs locally with zero cloud setup.
 
 ```
 Browser (Vue 3) ──HTTP──► ASP.NET Core API ──► IDocumentExtractor ──► Azure Doc Intelligence
-                                              └► MockDocumentExtractor (no key) ─┘
+                                              └► MockDocumentExtractor (no endpoint) ──────┘
                                           └► FieldCheckRunner (user-composed field checks)
 ```
 
@@ -60,15 +60,15 @@ Browser (Vue 3) ──HTTP──► ASP.NET Core API ──► IDocumentExtracto
 ## Project layout
 
 ```
-backend/Directory.Build.props  solution-wide quality gate (warnings-as-errors, analyzers, StyleCop)
+backend/Directory.Build.props  solution-wide quality gate (warnings-as-errors, .NET analyzers, StyleCop, SonarAnalyzer)
 backend/.editorconfig          house style + the curated analyzer/StyleCop ruleset (each opt-out has a reason)
 backend/KycLite.slnx           ties the API and test projects together
 backend/KycLite.Api/           ASP.NET Core (.NET 10) Web API (controllers)
   Controllers/            CatalogController (catalogs), StatusController (extractor mode), VerificationController (verify)
   Services/               IVerificationService — orchestrates extract → validate → project
   Extraction/             IDocumentExtractor + Azure & Mock implementations, options, exceptions
-  Validation/             IFieldRule + FieldCheckRunner, FileSignatures (format detection), MRZ check digits (Mrz731 + Mrz)
-    FieldRules/           the six field-rules + DateParsing
+  Validation/             FieldCheckRunner, FileSignatures (format detection), MRZ check digits (Mrz731 + Mrz)
+    FieldRules/           IFieldRule + the six field-rules + DateParsing
   Infrastructure/         GlobalExceptionHandler (RFC 7807 ProblemDetails)
   Catalog/                discoverable field, field-rule & default-check definitions
   Models/                 API + extraction DTOs, verify form model
@@ -96,7 +96,8 @@ cd backend/KycLite.Api
 dotnet run
 ```
 
-It listens on `http://localhost:5000` and logs `Document extractor active: mock`.
+It listens on `http://localhost:5000` and logs
+`Document extractor active: mock (offline); cross-origin access: same-origin only`.
 
 Quick check:
 
@@ -141,11 +142,15 @@ The backend suite (`backend/KycLite.Api.Tests/`) covers:
 - **`VerificationService`** — verdict logic (incl. field checks folded in) against an injected
   `TimeProvider`, and that field projection narrows the response while rules still evaluate against
   the full extraction.
-- **API integration** (`WebApplicationFactory`) — `/api/fields`, `/api/field-rules`,
-  `/api/default-checks`, and `/api/verify` over an in-memory server, including a spoofed-content
-  upload, surfaced ignored checks, ProblemDetails for rate-limited (429) and unknown-API (404)
-  requests, and 400s for a missing / oversized file, unsupported content type, and malformed
-  `fieldChecks` JSON.
+- **API integration** (`WebApplicationFactory`) — every endpoint over an in-memory server
+  (`/api/status`, `/api/fields`, `/api/field-rules`, `/api/default-checks`, `/api/verify`,
+  `/health`), including a spoofed-content upload, surfaced ignored checks and ignored fields,
+  ProblemDetails for rate-limited (429), unknown-API (404), rejected-credentials (503) and
+  extractor-fault (500) responses, 400s for a missing / oversized file, unsupported content type
+  and malformed `fieldChecks` JSON, and that CORS admits a configured origin while refusing
+  everything else.
+- **`DocumentIntelligenceOptions`** — which configuration selects Azure over the mock, and when
+  that means the keyless (managed-identity) path.
 
 Tests follow the **Arrange-Act-Assert** convention.
 
@@ -178,10 +183,12 @@ cd frontend && npm run format:check
 ```
 
 - **Backend** (`Directory.Build.props` + `.editorconfig`): `TreatWarningsAsErrors`,
-  `AnalysisLevel=latest-recommended` (CA rules), `EnforceCodeStyleInBuild` (IDE rules), and
-  **StyleCop** (SA rules). StyleCop's defaults encode a pre-modern C# style, so the ruleset is
-  curated rather than adopted wholesale — every opt-out in `.editorconfig` carries the reason it
-  was made (e.g. `SA1101`'s `this.` prefix conflicts with primary constructors).
+  `AnalysisLevel=latest-recommended` (CA rules), `EnforceCodeStyleInBuild` (IDE rules),
+  **StyleCop** (SA rules) and **SonarAnalyzer** (S rules — the SonarQube ruleset running as a plain
+  Roslyn analyzer, no server or scanner involved). StyleCop's defaults encode a pre-modern C#
+  style, so the ruleset is curated rather than adopted wholesale — every opt-out in `.editorconfig`
+  carries the reason it was made (e.g. `SA1101`'s `this.` prefix conflicts with primary
+  constructors).
 - **Frontend** (`eslint.config.ts` + `.prettierrc.json`): **ESLint** with `eslint-plugin-vue`,
   which lints *inside* SFC templates — catching things a type-checker can't see (unhyphenated
   attributes, attribute order, missing `v-for` keys). **Prettier** owns formatting; ESLint's
@@ -201,9 +208,10 @@ az login   # only needed for the keyless path (needs "Cognitive Services User" o
 dotnet run
 ```
 
-`.env` is git-ignored. On restart the log flips to `Document extractor active: azure` and the
-prebuilt `idDocument` model is used. That the frontend is unaffected is the point of the
-abstraction. (Environment variables and .NET user-secrets work too — they override `.env`.)
+`.env` is git-ignored. On restart the log flips to
+`Document extractor active: azure (Entra ID / managed identity)` and the prebuilt `idDocument`
+model is used. That the frontend is unaffected is the point of the abstraction. (Environment
+variables and .NET user-secrets work too — they override `.env`.)
 
 ## Deployment
 
@@ -245,14 +253,21 @@ Every push to `main` that passes the quality gates is deployed to **Azure App Se
 
 ## API
 
-| Method | Path                  | Purpose                                                                 |
-| ------ | --------------------- | ----------------------------------------------------------------------- |
-| GET    | `/api/status`         | Extractor (`azure`/`mock`) + the running build's commit SHA.            |
-| GET    | `/api/fields`         | Fields the user can request, each tagged with a type (drives the UI).   |
-| GET    | `/api/field-rules`    | Field-rules the user can attach to a field (key, label, param, types).  |
-| GET    | `/api/default-checks` | The seed check set the UI starts with.                                  |
-| POST   | `/api/verify`         | multipart `file`, `fields` (csv or `*`), `fieldChecks` (JSON array).    |
-| GET    | `/health`             | Liveness probe.                                                         |
+| Method | Path                  | Purpose                                                                |
+| ------ | --------------------- | ---------------------------------------------------------------------- |
+| GET    | `/api/status`         | Extractor (`azure`/`mock`) + the running build's version.              |
+| GET    | `/api/fields`         | Fields the user can request, each tagged with a type (drives the UI).  |
+| GET    | `/api/field-rules`    | Field-rules the user can attach to a field (key, label, param, types). |
+| GET    | `/api/default-checks` | The seed check set the UI starts with.                                 |
+| POST   | `/api/verify`         | multipart `file`, `fields` (csv or `*`), `fieldChecks` (JSON array).   |
+| GET    | `/health`             | Liveness probe.                                                        |
+| GET    | `/swagger`            | Interactive API docs (OpenAPI JSON at `/swagger/v1/swagger.json`).     |
+
+Swagger UI is served in **every** environment, including the live demo: the discovery endpoints are
+the centrepiece here, so they're meant to be explored in a browser rather than described. The
+`version` on `/api/status` names the running build — CI stamps the bare commit SHA in at publish
+time (which is what the deploy smoke test waits for), so a locally built copy reports the assembly's
+own `1.0.0+<sha>` instead.
 
 `/api/verify` returns
 `{ status, documentType, extractedFields, ruleResults[], ignoredChecks[], ignoredFields[], extractorMode }`.
