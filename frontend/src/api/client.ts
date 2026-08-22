@@ -69,9 +69,44 @@ export interface VerifyResponse {
   extractorMode: string
 }
 
+// Every request is bounded, so a stalled connection surfaces as an error the user can act on
+// rather than a spinner that never stops.
+//
+// The catalogs are the first calls on page load, which is exactly when a free-tier App Service may
+// still be cold-starting (~30-40s), so they get room for that. Verify needs more again: a cold
+// start, then the upload itself, then the server's own 60s cap on a single Azure analysis
+// (AzureDocumentExtractor.AnalyzeTimeout, past which it answers 504). These are backstops against
+// "never returns", not latency targets.
+const CATALOG_TIMEOUT_MS = 30_000
+const VERIFY_TIMEOUT_MS = 120_000
+
+/**
+ * One request path for the whole client, so success and failure are shaped the same way wherever
+ * they come from: a bounded fetch, and RFC 7807 ProblemDetails (`detail`/`title`) turned into the
+ * Error message the UI displays.
+ */
+async function send(path: string, init: RequestInit, timeoutMs: number, label: string) {
+  let res: Response
+  try {
+    res = await fetch(`${BASE}${path}`, { ...init, signal: AbortSignal.timeout(timeoutMs) })
+  } catch (e) {
+    // AbortSignal.timeout rejects with a TimeoutError DOMException whose own message ("signal timed
+    // out") means nothing to a user; anything else thrown by fetch is a transport failure.
+    if (e instanceof DOMException && e.name === 'TimeoutError')
+      throw new Error(`${label} timed out. Please try again.`)
+    throw new Error('Could not reach the server. Check your connection and try again.')
+  }
+
+  if (!res.ok) {
+    const problem = await res.json().catch(() => null)
+    throw new Error(problem?.detail ?? problem?.title ?? `${label} failed (${res.status}).`)
+  }
+
+  return res
+}
+
 async function getJson<T>(path: string): Promise<T> {
-  const res = await fetch(`${BASE}${path}`)
-  if (!res.ok) throw new Error(`Request failed (${res.status})`)
+  const res = await send(path, {}, CATALOG_TIMEOUT_MS, 'Loading the page data')
   return res.json() as Promise<T>
 }
 
@@ -91,11 +126,11 @@ export async function verify(
   form.append('fields', fields.length === 0 ? '*' : fields.join(','))
   form.append('fieldChecks', JSON.stringify(fieldChecks))
 
-  const res = await fetch(`${BASE}/api/verify`, { method: 'POST', body: form })
-  if (!res.ok) {
-    // Errors come back as RFC 7807 ProblemDetails (`detail`/`title`).
-    const problem = await res.json().catch(() => null)
-    throw new Error(problem?.detail ?? problem?.title ?? `Verification failed (${res.status})`)
-  }
+  const res = await send(
+    '/api/verify',
+    { method: 'POST', body: form },
+    VERIFY_TIMEOUT_MS,
+    'Verification',
+  )
   return res.json() as Promise<VerifyResponse>
 }
