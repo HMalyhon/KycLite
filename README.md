@@ -84,6 +84,7 @@ frontend/                 Vue 3 + Vite + TypeScript + PrimeVue (Aura theme) — 
   .prettierrc.json        formatting; ESLint defers to it (no rule fights)
   .env.example            copy to .env to override the dev proxy target
 .github/workflows/ci.yml  quality gates on every push/PR + OIDC deploy of main to Azure
+.github/dependabot.yml    monthly dependency-update PRs (actions, NuGet, npm), gated by the same CI
 infra/                    main.bicep (App Service) + README.md (one-time Azure/OIDC setup)
 ```
 
@@ -174,7 +175,9 @@ pure function:
 
 Both halves fail the build on any warning, so neither can rot quietly. **CI**
 ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs these same gates on every push and
-pull request — the badge at the top reflects the latest run.
+pull request — the badge at the top reflects the latest run. **Dependabot**
+([`.github/dependabot.yml`](.github/dependabot.yml)) opens monthly update PRs for the workflow's
+actions and the NuGet and npm packages, and each one has to clear those same gates.
 
 ```bash
 cd backend  && dotnet build     # warnings-as-errors

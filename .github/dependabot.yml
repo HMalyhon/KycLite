@@ -1,0 +1,50 @@
+# Dependabot: monthly version-update PRs for the three ecosystems the repo actually pins — the CI
+# workflow's actions, the backend's NuGet packages and the frontend's npm packages. Each PR runs
+# through the same quality gates in ci.yml as any other change; nothing merges or deploys itself.
+#
+# For NuGet and npm, minor and patch bumps are grouped into one PR per ecosystem so routine upkeep
+# stays a single review; majors still arrive one per package, since those are the ones that break
+# builds. Actions are referenced by major tag (@v7), so their updates are all majors and are
+# grouped whole — CI exercises every one of them on the PR itself.
+# The 7-day cooldown lets a release age before it is proposed: a compromised or yanked version is
+# usually caught within days, and a demo gains nothing from being first.
+
+version: 2
+
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 7
+    groups:
+      actions:
+        patterns: ['*']
+
+  # /backend holds KycLite.slnx, which pulls in both projects and Directory.Build.props (StyleCop,
+  # SonarAnalyzer), so a single entry covers every PackageReference.
+  - package-ecosystem: nuget
+    directory: /backend
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 7
+    groups:
+      nuget-minor-patch:
+        update-types: [minor, patch]
+    ignore:
+      # Microsoft.AspNetCore.* majors track the .NET release (Mvc.Testing 10.x ↔ net10.0), so
+      # moving one is part of a deliberate target-framework upgrade, not a routine bump.
+      - dependency-name: Microsoft.AspNetCore.*
+        update-types: [version-update:semver-major]
+
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 7
+    groups:
+      npm-minor-patch:
+        update-types: [minor, patch]
