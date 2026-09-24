@@ -48,3 +48,15 @@ updates:
     groups:
       npm-minor-patch:
         update-types: [minor, patch]
+    ignore:
+      # PrimeVue 5, PrimeIcons 8 and @primeuix/themes 3 left MIT for the proprietary PrimeUI
+      # License: a compiled package that shows an "Invalid PrimeUI License" notice without an
+      # annually renewed key. The 4.x / 7.x / 2.x lines are the last MIT releases; stay on them.
+      - dependency-name: primevue
+        update-types: [version-update:semver-major]
+      - dependency-name: primeicons
+        update-types: [version-update:semver-major]
+      - dependency-name: '@primevue/*'
+        update-types: [version-update:semver-major]
+      - dependency-name: '@primeuix/*'
+        update-types: [version-update:semver-major]
