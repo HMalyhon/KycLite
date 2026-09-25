@@ -60,3 +60,10 @@ updates:
         update-types: [version-update:semver-major]
       - dependency-name: '@primeuix/*'
         update-types: [version-update:semver-major]
+      # TypeScript 7 is the native (Go) compiler and ships without the JS API that vue-tsc (the
+      # build's SFC type-check) and typescript-eslint (the lint gate) are built on; both fail
+      # outright on it. Their only route today aliases `typescript` back to the TS 6 package, so
+      # both would still run on 6 and the bump would change nothing. Drop this once they support 7
+      # natively (typescript-eslint/typescript-eslint#10940).
+      - dependency-name: typescript
+        update-types: [version-update:semver-major]
